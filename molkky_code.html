@@ -39,7 +39,7 @@
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
 
-        .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 2px; font-weight: normal; font-family: sans-serif; }
+        .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 2px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
         .stat-val { font-size: 1.1rem; font-weight: 900; font-family: 'Roboto', sans-serif; }
 
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -55,8 +55,8 @@
 <body class="max-w-md mx-auto relative shadow-2xl">
 
     <button onclick="goHome()" class="fixed top-3 left-3 z-50 w-10 h-10 bg-gray-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg border border-gray-600 hover:bg-gray-700 active:scale-95">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
         </svg>
     </button>
 
@@ -132,24 +132,25 @@
             <div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700">
                 <div class="w-10 text-center">
                     <span class="block text-xs font-bold text-white leading-none">順位</span>
-                    <span class="block text-[9px] font-normal leading-none mt-1">RANK</span>
+                    <span class="block text-[8px] font-normal leading-none mt-1">RANK</span>
                 </div>
                 <div class="flex-1 pl-2">
                     <span class="block text-xs font-bold text-white leading-none">名前</span>
-                    <span class="block text-[9px] font-normal leading-none mt-1">NAME</span>
+                    <span class="block text-[8px] font-normal leading-none mt-1">NAME</span>
                 </div>
                 <div class="w-16 text-center">
                     <span class="block text-xs font-bold text-white leading-none">平均順位</span>
-                    <span class="block text-[9px] font-normal leading-none mt-1">AVG RANK</span>
+                    <span class="block text-[8px] font-normal leading-none mt-1">AVG RANK</span>
                 </div>
                 <div class="w-12 text-center">
                     <span class="block text-xs font-bold text-white leading-none">平均点</span>
-                    <span class="block text-[9px] font-normal leading-none mt-1">AVG</span>
+                    <span class="block text-[8px] font-normal leading-none mt-1">AVG</span>
                 </div>
             </div>
         </div>
         
-        <div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container"></div>
+        <div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container">
+            </div>
     </div>
 
     <script>
@@ -358,22 +359,24 @@
                 con.appendChild(row);
             });
 
-            // 指標ガイド
-            const guide = document.createElement('div');
-            guide.className = "mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400";
-            guide.innerHTML = `
-                <h3 class="font-bold text-white mb-2 text-sm border-b border-gray-600 pb-1">📊 指標ガイド</h3>
-                <ul class="space-y-2">
-                    <li><strong class="text-yellow-400">平均点 (AVG):</strong> 1投あたりの平均得点 (PPT)。</li>
-                    <li><strong class="text-white">勝率 (WIN RATE):</strong> 1位を獲得した確率。</li>
-                    <li><strong class="text-white">命中率 (ACCURACY):</strong> ミス(0点)をしなかった確率。</li>
-                    <li><strong class="text-white">狙撃率 (SNIPE):</strong> 1本倒しで得点した割合。</li>
-                    <li><strong class="text-white">勝負強さ (CLUTCH):</strong> 37点以上での得点成功率。</li>
-                    <li><strong class="text-white">得点力 (SCORING):</strong> 平均得点の高さをチャート化したもの。</li>
-                    <li><strong class="text-white">ラス回避 (AVOID LAST):</strong> 最下位にならなかった確率。</li>
-                </ul>
-            `;
-            con.appendChild(guide);
+            // ★ 指標の説明（表形式） ★
+            const glossary = document.createElement('div');
+            glossary.className = "mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400";
+            glossary.innerHTML = `
+                <h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3>
+                <table class="w-full text-left border-collapse">
+                    <tbody class="divide-y divide-gray-700">
+                        <tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点 (PPT)。<br>5.0以上で上級者。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">命中率</th><td class="py-2">ミス(0点)をしなかった確率。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">狙撃率</th><td class="py-2">1本倒し(Snipe)で得点した割合。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">勝負強さ</th><td class="py-2">37点以上での得点成功率。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">得点力</th><td class="py-2">平均得点の高さを0-100で評価したもの。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。</td></tr>
+                    </tbody>
+                </table>
+                <div class="h-8"></div>`;
+            con.appendChild(glossary);
 
             showView('view-records');
         }
@@ -418,7 +421,7 @@
                     <text x="${lx}" y="${ly+4}" text-anchor="middle" class="chart-value-text">${params[i].v}%</text>
                 </g>`;
             }
-            return `<svg viewBox="0 0 300 300" class="w-full">
+            return `<svg viewBox="-20 -20 340 340" class="w-full">
                 <circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/>
                 <circle cx="150" cy="150" r="45" fill="none" stroke="#374151" stroke-dasharray="2,2"/>
                 ${lines}
