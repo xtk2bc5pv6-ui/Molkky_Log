@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
     <style>
-        /* 基本設定 */
+        /* --- 基本設定 --- */
         body { 
             background-color: #111827; color: white; 
             font-family: 'Roboto', 'Noto Sans JP', sans-serif; 
@@ -17,38 +17,47 @@
             user-select: none; -webkit-user-select: none;
         }
         
-        /* アプリ描画エリア */
-        #app-container {
-            width: 100%; height: 100%; display: flex; flex-direction: column;
-        }
+        /* 画面切り替え制御 */
+        #app-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
 
-        /* 以下、共通デザインパーツ */
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-
+        /* --- ボタンデザイン (修正箇所: 完全な正円に固定) --- */
         .score-btn {
-            width: 100%; aspect-ratio: 1; max-width: 54px; 
+            width: 54px;  /* 幅を固定 */
+            height: 54px; /* 高さを固定 */
+            flex-shrink: 0; /* 画面が狭くても潰れないようにする */
             font-size: 1.5rem; font-weight: 900;
             display: flex; align-items: center; justify-content: center;
-            border-radius: 50%; transition: transform 0.1s; position: relative;
+            border-radius: 50%; 
+            transition: transform 0.1s; 
+            position: relative;
             box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+            margin: 0 auto; /* 中央寄せ */
         }
         .score-btn:active { transform: scale(0.92) translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3); }
-        .pin-row { display: flex; justify-content: center; gap: 8px; margin-bottom: 8px; }
+        
+        .pin-row { 
+            display: flex; 
+            justify-content: center; 
+            gap: 10px; /* ボタン間の隙間 */
+            margin-bottom: 8px; 
+        }
 
         .mode-snipe .score-btn { background: radial-gradient(circle at 30% 30%, #e4c49f, #c89f72); color: #3e2723; border: 2px solid #5d4037; border-radius: 50%; }
         .mode-break .score-btn { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; border: 1px solid #93c5fd; border-radius: 12px; }
         .btn-miss { background: linear-gradient(to bottom, #ef4444, #dc2626); box-shadow: 0 3px 0 #991b1b; }
         .btn-miss:active { transform: translateY(2px); box-shadow: 0 1px 0 #991b1b; }
 
+        /* --- その他パーツ --- */
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
 
         .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
         .stat-val { font-size: 1.1rem; font-weight: 900; font-family: 'Roboto', sans-serif; }
 
-        /* チャート用 */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+
+        /* チャートのタップギミック */
         .chart-label-group { cursor: pointer; }
         .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
         .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
@@ -58,7 +67,9 @@
 <body class="max-w-md mx-auto relative shadow-2xl">
 
     <button onclick="router('home')" class="fixed top-3 left-3 z-50 w-10 h-10 bg-gray-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg border border-gray-600 hover:bg-gray-700 active:scale-95">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+        </svg>
     </button>
 
     <div id="app-container"></div>
@@ -69,8 +80,7 @@
         let players = [], currentIndex = 0, clearOrder = [], eliminatedStack = [], currentMode = 'snipe';
         const app = document.getElementById('app-container');
 
-        // --- Router (画面切り替えの中枢) ---
-        // 画面の中身を完全に消去してから、新しいHTMLを書き込みます
+        // --- Router (画面切り替え) ---
         function router(page) {
             app.innerHTML = ''; // 画面リセット！
 
@@ -86,7 +96,6 @@
 
         // --- 1. HOME画面 ---
         function renderHome() {
-            // ランキング表はここには一切書きません
             app.innerHTML = `
                 <div class="flex-grow flex flex-col justify-center items-center p-6 bg-gray-900">
                     <div class="mb-10 text-center">
@@ -118,7 +127,6 @@
                     </div>
                 </div>
             `;
-            // 初期入力欄生成
             if(players.length === 0) renderInputs(['Player 1', 'Player 2']);
             else renderInputs(players.map(p => p.name));
         }
@@ -150,7 +158,7 @@
             });
             if(players.length < 1) return alert("プレイヤーがいません");
             currentIndex = 0; switchMode('snipe'); 
-            router('game'); // 画面移動
+            router('game');
         }
 
         // --- 3. ゲーム画面 ---
@@ -188,7 +196,6 @@
             switchMode('snipe'); 
         }
 
-        // --- ゲームロジック ---
         function switchMode(mode) {
             currentMode = mode;
             const c = document.getElementById('pin-container');
@@ -295,7 +302,6 @@
 
         // --- 5. 記録・分析画面 ---
         function renderRecords() {
-            // タイトルとテーブルヘッダーの描画
             app.innerHTML = `
                 <div class="bg-gray-900 pt-16 flex flex-col h-full">
                     <div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10">
@@ -320,7 +326,6 @@
                 return; 
             }
 
-            // データ集計
             let pStats = {};
             hist.forEach(m => {
                 m.ranking.forEach((name, idx) => {
@@ -351,7 +356,6 @@
                 });
             });
 
-            // ソート
             let lb = Object.keys(pStats).map(n => {
                 const d = pStats[n];
                 const avg = d.ranks.reduce((a,b)=>a+b,0)/d.ranks.length;
@@ -359,7 +363,6 @@
                 return { name:n, avgRank:avg, ppt:ppt, data:d };
             }).sort((a,b) => a.avgRank - b.avgRank);
 
-            // 生成
             let curRank=1;
             lb.forEach((p, i) => {
                 if(i>0 && p.avgRank > lb[i-1].avgRank) curRank=i+1;
@@ -393,7 +396,7 @@
                 con.appendChild(row);
             });
 
-            // 用語集
+            // 指標ガイド
             const glossary = document.createElement('div');
             glossary.className = "mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400";
             glossary.innerHTML = `
