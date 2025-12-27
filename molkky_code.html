@@ -60,22 +60,21 @@
     <div id="app-container"></div>
 
     <script>
-        // --- ★ 初期データ (レガシーデータ) ★ ---
-        // ここにあるデータは「常に」表示されます。
+        // --- ★ 初期データ (指定の3名) ★ ---
         const LEGACY_STATS = {
             "吉谷悠": { 
                 games: 66, wins: 25, 
-                // ファウル33% -> 命中67%, 平均4点 -> 合計 = 660投 * 4点
+                // ファウル33% -> 命中67%, 平均4点
                 throws: 660, misses: 218, points: 2640 
             },
             "石井山拓登": { 
                 games: 61, wins: 26, 
-                // ファウル23% -> 命中77%
+                // ファウル23% -> 命中77%, 平均4点
                 throws: 610, misses: 140, points: 2440
             },
             "森岡凜太郎": { 
                 games: 35, wins: 14, 
-                // ファウル28% -> 命中72%
+                // ファウル28% -> 命中72%, 平均4点
                 throws: 350, misses: 98, points: 1400
             }
         };
@@ -100,7 +99,7 @@
 
         // --- 1. HOME画面 ---
         function renderHome() {
-            // ★デモデータ生成ボタンを削除しました
+            // シンプルにボタンのみ
             app.innerHTML = `
                 <div class="flex-grow flex flex-col justify-center items-center p-6 bg-gray-900">
                     <div class="mb-10 text-center">
@@ -131,7 +130,7 @@
                     </div>
                 </div>
             `;
-            // ★初期メンバー固定
+            // 初期メンバー指定
             if(players.length === 0) renderInputs(['吉谷悠', '石井山拓登', '森岡凜太郎']);
             else renderInputs(players.map(p => p.name));
         }
@@ -324,7 +323,7 @@
             const hist = JSON.parse(localStorage.getItem('molkky_match_history')||'[]');
             const con = document.getElementById('records-container');
             
-            // ★以前の「データなしならreturn」を削除。初期データ(Legacy)があるため必ず描画する。
+            // ★ 初期データ(Legacy)があるため「データなし」判定は削除
 
             let pStats = {};
 
@@ -415,7 +414,6 @@
                 con.appendChild(row);
             });
 
-            // 指標ガイド
             const glossary = document.createElement('div');
             glossary.className = "mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400";
             glossary.innerHTML = `
@@ -465,8 +463,10 @@
                 const v = params[i].v;
                 pts += `${cx+(r*(v/100))*Math.cos(a)},${cy+(r*(v/100))*Math.sin(a)} `;
                 lines += `<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#374151"/>`;
+                
                 const lx = cx+(r+35)*Math.cos(a);
                 const ly = cy+(r+35)*Math.sin(a);
+                
                 lbls += `<g class="chart-label-group" oncontextmenu="return false;">
                     <text x="${lx}" y="${ly-5}" font-size="12" font-weight="900" fill="#fff" text-anchor="middle" font-family="'Noto Sans JP', sans-serif" class="chart-text">${params[i].l}</text>
                     <text x="${lx}" y="${ly+8}" font-size="8" fill="#6b7280" text-anchor="middle" font-family="'Roboto', sans-serif" class="chart-text">${params[i].e}</text>
@@ -481,7 +481,7 @@
             const wins = d.wins;
             const total = d.totalGames;
             
-            const winRate = Math.round((wins/total)*100);
+            const winRate = Math.round((wins/total)*100) + "%";
             const avgRank = d.ranks.length > 0 ? (d.ranks.reduce((a,b)=>a+b,0)/d.ranks.length).toFixed(1) : "-";
             const avgScore = s.throws > 0 ? (s.totalPoints/s.throws).toFixed(1) : "-";
             
@@ -490,7 +490,7 @@
             
             return `
                 <div class="grid grid-cols-3 gap-2 text-center">
-                    <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-yellow-400">${winRate}%</span><span class="stat-label">勝率</span></div>
+                    <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-yellow-400">${winRate}</span><span class="stat-label">勝率</span></div>
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-white">${avgRank}</span><span class="stat-label">平均順位</span></div>
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-white">${avgScore}</span><span class="stat-label">平均得点</span></div>
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-green-400">${snipeRate}</span><span class="stat-label">狙撃率</span></div>
