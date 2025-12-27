@@ -19,7 +19,15 @@
             width: 60px; height: 60px;
             font-family: 'Roboto', sans-serif;
             font-size: 1.8rem; font-weight: 900; /* 極太フォント */
-            display: flex; align-items: center; justify-center: center;
+            
+            /* ★修正箇所：ここから */
+            display: flex; 
+            align-items: center; 
+            justify-content: center; /* 左右の中央揃え */
+            padding: 0; /* 余計な余白を削除 */
+            text-align: center;
+            /* ★修正箇所：ここまで */
+            
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
         }
@@ -33,7 +41,7 @@
             box-shadow: 0 4px 0 #8d6e63, 0 5px 10px rgba(0,0,0,0.3);
             border: 2px solid #5d4037;
         }
-        .btn-snipe::after { /* 頭の数字を見やすく */
+        .btn-snipe::after { /* 光沢感 */
             content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             border-radius: 50%;
             background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), transparent);
@@ -223,7 +231,7 @@
         function showModal(icon, title, message, actions) {
             document.getElementById('modal-icon').innerText = icon;
             document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-message').innerHTML = message; // HTML許可
+            document.getElementById('modal-message').innerHTML = message;
             
             const actionContainer = document.getElementById('modal-actions');
             actionContainer.innerHTML = '';
@@ -255,7 +263,6 @@
             const buttons = document.querySelectorAll('.score-btn');
 
             if (mode === 'snipe') {
-                // Snipeモードスタイル
                 btnSnipe.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-yellow-600 text-white shadow-md";
                 btnBreak.className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
                 
@@ -264,7 +271,6 @@
                     btn.classList.add('btn-snipe');
                 });
             } else {
-                // Breakモードスタイル
                 btnSnipe.className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
                 btnBreak.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-md";
                 
@@ -312,7 +318,6 @@
             const player = players[currentIndex];
 
             if(points === 0) {
-                // ミス処理
                 player.miss += 1;
                 if(player.miss >= 3) {
                     player.status = STATUS.ELIMINATED;
@@ -321,13 +326,10 @@
                     showModal('💀', '失格！', `<span class="text-red-400 font-bold text-lg">${player.name}</span><br>3回連続ミスにより脱落です...`, [
                         { text: '閉じる', primary: false, onClick: () => checkGameEnd() }
                     ]);
-                    // ここではまだリターンせず、モーダル閉じ後に次へ
                 } else {
-                    // 通常ミス
-                    checkGameEnd(); // ミスでもゲーム終了条件（全員失格など）がありうるか？基本はないがチェック
+                    checkGameEnd();
                 }
             } else {
-                // 得点処理
                 player.miss = 0;
                 let nextScore = player.score + points;
                 
@@ -346,7 +348,7 @@
                     ]);
                 } else {
                     player.score = nextScore;
-                    checkGameEnd(); // 得点時は即次へ
+                    checkGameEnd();
                 }
             }
         }
@@ -354,13 +356,10 @@
         function checkGameEnd() {
             updateScoreboard();
 
-            // 終了判定
             const activePlayers = players.filter(p => p.status === STATUS.PLAYING);
             if (activePlayers.length <= 1) {
-                // ゲーム終了
-                setTimeout(finishGame, 300); // 少し間を開けてリザルトへ
+                setTimeout(finishGame, 300);
             } else {
-                // 次のターンへ
                 proceedTurn();
             }
         }
