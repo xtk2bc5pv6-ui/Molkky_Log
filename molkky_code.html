@@ -3,148 +3,279 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mölkky Battle Royale</title>
+    <title>Mölkky Battle Royale Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@900&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #1f2937; color: white; font-family: sans-serif; touch-action: manipulation; }
+        body { background-color: #111827; color: white; font-family: 'Roboto', sans-serif; touch-action: manipulation; }
         
         .view-section { display: none; height: 100vh; flex-direction: column; }
         .active-view { display: flex; }
 
-        /* スキットルボタン */
-        .pin-btn {
-            width: 58px; height: 58px;
-            border-radius: 50%;
-            background-color: #d4a373; color: #3e2723;
-            font-size: 1.4rem; font-weight: bold;
-            display: flex; align-items: center; justify-center: center;
-            box-shadow: 0 4px 0 #8d6e63;
-            transition: all 0.1s;
-        }
-        .pin-btn:active { transform: translateY(4px); box-shadow: none; }
-
-        /* 現在のプレイヤー強調 */
-        .current-turn { border: 2px solid #fbbf24; background-color: #374151; }
+        /* --- ボタンのデザイン定義 --- */
         
-        /* ステータス別の行スタイル */
-        .row-playing { }
-        .row-cleared { background-color: rgba(16, 185, 129, 0.2); color: #6ee7b7; } /* 緑っぽく */
-        .row-eliminated { background-color: rgba(0, 0, 0, 0.5); color: #6b7280; opacity: 0.6; } /* 暗く */
+        /* 共通ベース */
+        .score-btn {
+            width: 60px; height: 60px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 1.8rem; font-weight: 900; /* 極太フォント */
+            display: flex; align-items: center; justify-center: center;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        .score-btn:active { transform: scale(0.92); }
+
+        /* モード1: Snipe (スキットル風・丸・木目色) */
+        .btn-snipe {
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e4c49f 0%, #c89f72 100%);
+            color: #3e2723;
+            box-shadow: 0 4px 0 #8d6e63, 0 5px 10px rgba(0,0,0,0.3);
+            border: 2px solid #5d4037;
+        }
+        .btn-snipe::after { /* 頭の数字を見やすく */
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), transparent);
+        }
+
+        /* モード2: Break (本数カウント風・四角・青色) */
+        .btn-break {
+            border-radius: 12px;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 0 #1d4ed8, 0 5px 10px rgba(0,0,0,0.3);
+            border: 1px solid #93c5fd;
+            text-shadow: 0 2px 0 rgba(0,0,0,0.2);
+        }
+
+        /* ミスボタン */
+        .btn-miss {
+            background: linear-gradient(to bottom, #ef4444, #dc2626);
+            box-shadow: 0 4px 0 #991b1b;
+        }
+        .btn-miss:active { transform: translateY(2px); box-shadow: 0 1px 0 #991b1b; }
+
+        /* スコアボード */
+        .current-turn { 
+            background: rgba(251, 191, 36, 0.15); 
+            border-left: 4px solid #fbbf24;
+        }
+        .row-eliminated { opacity: 0.4; filter: grayscale(100%); }
+        .row-cleared { background: rgba(16, 185, 129, 0.15); border-left: 4px solid #10b981; }
+
+        /* モーダルバナー */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-center: center;
+            z-index: 50; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .modal-active { opacity: 1; pointer-events: auto; }
+        
+        .modal-content {
+            background: #1f2937; border-radius: 20px; padding: 2rem;
+            width: 85%; max-width: 320px; text-align: center;
+            border: 1px solid #374151;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+            transform: scale(0.9); transition: transform 0.2s;
+        }
+        .modal-active .modal-content { transform: scale(1); }
     </style>
 </head>
-<body class="max-w-md mx-auto bg-gray-900 shadow-2xl overflow-hidden">
+<body class="max-w-md mx-auto bg-gray-900 shadow-2xl overflow-hidden relative">
 
-    <div id="view-title" class="view-section active-view justify-center items-center p-6 text-center space-y-8">
+    <div id="view-title" class="view-section active-view justify-center items-center p-6 text-center space-y-8 bg-gray-900">
         <div>
-            <h1 class="text-4xl font-bold text-yellow-500 mb-2">Mölkky<br>Battle</h1>
-            <p class="text-gray-400 text-sm">完全決着ルール</p>
+            <h1 class="text-5xl font-black text-yellow-500 mb-2 tracking-tighter drop-shadow-lg">Mölkky<br>Battle</h1>
+            <p class="text-gray-400 text-sm font-bold tracking-widest">完全決着ルール</p>
         </div>
-        <button onclick="goToSetup()" class="w-full py-4 bg-yellow-600 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-yellow-500 transition">
+        <button onclick="goToSetup()" class="w-full py-4 bg-yellow-600 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-yellow-500 transition transform hover:-translate-y-1">
             新しい試合
         </button>
     </div>
 
-    <div id="view-setup" class="view-section p-6">
-        <h2 class="text-xl font-bold text-center mb-6 border-b border-gray-700 pb-2">プレイヤー選択</h2>
+    <div id="view-setup" class="view-section p-6 bg-gray-900">
+        <h2 class="text-xl font-bold text-center mb-6 border-b border-gray-700 pb-2 text-gray-300">PLAYER ENTRY</h2>
         
-        <div class="flex-grow overflow-y-auto space-y-3 mb-4" id="player-input-list">
-            <input type="text" value="Player 1" class="player-name-input w-full p-3 bg-gray-800 rounded border border-gray-600 text-white">
-            <input type="text" value="Player 2" class="player-name-input w-full p-3 bg-gray-800 rounded border border-gray-600 text-white">
-            <input type="text" value="Player 3" class="player-name-input w-full p-3 bg-gray-800 rounded border border-gray-600 text-white">
+        <div class="flex-grow overflow-y-auto space-y-3 mb-4 pr-1" id="player-input-list">
+            <input type="text" value="Player 1" class="player-name-input w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold focus:border-yellow-500 outline-none">
+            <input type="text" value="Player 2" class="player-name-input w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold focus:border-yellow-500 outline-none">
+            <input type="text" value="Player 3" class="player-name-input w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold focus:border-yellow-500 outline-none">
         </div>
 
-        <button onclick="addPlayerInput()" class="w-full py-2 mb-4 bg-gray-700 text-gray-300 rounded-lg text-sm border-dashed border-2 border-gray-600">+ メンバーを追加</button>
+        <button onclick="addPlayerInput()" class="w-full py-3 mb-4 bg-gray-800 text-gray-400 rounded-xl text-sm border-dashed border-2 border-gray-700 font-bold hover:bg-gray-750">+ メンバー追加</button>
 
-        <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-lg">
-            試合開始
+        <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-blue-500 transition">
+            GAME START
         </button>
-        <button onclick="showView('view-title')" class="mt-4 text-gray-500 text-sm text-center w-full">戻る</button>
+        <button onclick="showView('view-title')" class="mt-4 text-gray-500 text-sm font-bold w-full">戻る</button>
     </div>
 
     <div id="view-game" class="view-section">
-        <div class="bg-gray-800 p-2 flex-grow overflow-y-auto">
-            <table class="w-full text-left">
-                <thead class="text-xs text-gray-500 border-b border-gray-700">
+        <div class="bg-gray-800 p-2 flex-grow overflow-y-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse">
+                <thead class="text-xs text-gray-500 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
                     <tr>
-                        <th class="pb-1 pl-2">NAME</th>
-                        <th class="pb-1 text-center">MISS</th>
-                        <th class="pb-1 text-right pr-4">SCORE</th>
+                        <th class="pb-2 pl-3 pt-2">NAME</th>
+                        <th class="pb-2 text-center pt-2">MISS</th>
+                        <th class="pb-2 text-right pr-4 pt-2">SCORE</th>
                     </tr>
                 </thead>
-                <tbody id="scoreboard-body" class="text-sm"></tbody>
+                <tbody id="scoreboard-body" class="text-sm font-bold"></tbody>
             </table>
         </div>
 
-        <div class="bg-gray-900 p-4 pb-8 rounded-t-3xl shadow-[0_-5px_15px_rgba(0,0,0,0.5)] z-10">
-            <div class="flex justify-between items-center mb-4 px-2">
+        <div class="bg-gray-900 pb-6 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20 relative">
+            
+            <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 mb-2">
                 <div>
-                    <span class="text-xs text-green-400 block">THROWING NEXT</span>
-                    <span id="current-player-name" class="text-xl font-bold text-white">Player Name</span>
+                    <span class="text-[10px] text-green-400 font-bold tracking-widest block mb-1">THROWING NEXT</span>
+                    <span id="current-player-name" class="text-xl font-black text-white tracking-tight truncate max-w-[150px] block">Player Name</span>
                 </div>
                 <div class="text-right">
-                    <span class="text-xs text-gray-400 block">TARGET</span>
-                    <span class="text-2xl font-mono text-yellow-400">50</span>
+                    <span class="text-[10px] text-gray-500 font-bold tracking-widest block mb-1">TARGET</span>
+                    <span class="text-3xl font-black text-yellow-400 leading-none">50</span>
                 </div>
             </div>
 
-            <div class="flex flex-col items-center gap-3 mb-4">
-                <div class="flex gap-4"> 
-                    <button class="pin-btn" onclick="inputScore(7)">7</button>
-                    <button class="pin-btn" onclick="inputScore(9)">9</button>
-                    <button class="pin-btn" onclick="inputScore(8)">8</button>
-                </div>
-                <div class="flex gap-4"> 
-                    <button class="pin-btn" onclick="inputScore(5)">5</button>
-                    <button class="pin-btn" onclick="inputScore(11)">11</button>
-                    <button class="pin-btn" onclick="inputScore(12)">12</button>
-                    <button class="pin-btn" onclick="inputScore(6)">6</button>
-                </div>
-                <div class="flex gap-4"> 
-                    <button class="pin-btn" onclick="inputScore(3)">3</button>
-                    <button class="pin-btn" onclick="inputScore(10)">10</button>
-                    <button class="pin-btn" onclick="inputScore(4)">4</button>
-                </div>
-                <div class="flex gap-4"> 
-                    <button class="pin-btn" onclick="inputScore(1)">1</button>
-                    <button class="pin-btn" onclick="inputScore(2)">2</button>
+            <div class="flex justify-center mb-4 px-4">
+                <div class="bg-gray-800 p-1 rounded-xl flex w-full max-w-xs border border-gray-700">
+                    <button id="tab-snipe" onclick="switchMode('snipe')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all duration-200 text-gray-400">
+                        🎯 1本 (Snipe)
+                    </button>
+                    <button id="tab-break" onclick="switchMode('break')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all duration-200 text-gray-400">
+                        💥 複数 (Break)
+                    </button>
                 </div>
             </div>
 
-            <button onclick="inputScore(0)" class="w-full py-3 bg-red-900/80 text-red-200 font-bold rounded-xl border border-red-800 active:bg-red-800">
-                MISS (0点)
-            </button>
+            <div class="flex flex-col items-center gap-3 mb-5 px-2">
+                <div class="flex gap-4"> 
+                    <button class="score-btn" onclick="inputScore(7)">7</button>
+                    <button class="score-btn" onclick="inputScore(9)">9</button>
+                    <button class="score-btn" onclick="inputScore(8)">8</button>
+                </div>
+                <div class="flex gap-4"> 
+                    <button class="score-btn" onclick="inputScore(5)">5</button>
+                    <button class="score-btn" onclick="inputScore(11)">11</button>
+                    <button class="score-btn" onclick="inputScore(12)">12</button>
+                    <button class="score-btn" onclick="inputScore(6)">6</button>
+                </div>
+                <div class="flex gap-4"> 
+                    <button class="score-btn" onclick="inputScore(3)">3</button>
+                    <button class="score-btn" onclick="inputScore(10)">10</button>
+                    <button class="score-btn" onclick="inputScore(4)">4</button>
+                </div>
+                <div class="flex gap-4"> 
+                    <button class="score-btn" onclick="inputScore(1)">1</button>
+                    <button class="score-btn" onclick="inputScore(2)">2</button>
+                </div>
+            </div>
+
+            <div class="px-6">
+                <button onclick="inputScore(0)" class="w-full py-4 btn-miss text-white font-black rounded-2xl text-lg tracking-wider active:bg-red-700 transition">
+                    MISS ( 0 )
+                </button>
+            </div>
+            
+            <button onclick="confirmReset()" class="absolute top-[-40px] right-4 bg-gray-800 text-gray-500 text-xs px-3 py-1 rounded-full border border-gray-700">RESET</button>
         </div>
     </div>
 
-    <div id="view-result" class="view-section justify-center items-center p-6 text-center">
-        <h2 class="text-3xl text-yellow-400 font-bold mb-6">GAME SET!</h2>
+    <div id="view-result" class="view-section justify-center items-center p-6 text-center bg-gray-900">
+        <h2 class="text-4xl text-yellow-400 font-black mb-8 tracking-tighter drop-shadow-md">GAME SET!</h2>
         
-        <div class="w-full bg-gray-800 rounded-xl p-4 mb-8 text-left space-y-2" id="result-list">
+        <div class="w-full bg-gray-800 rounded-2xl p-6 mb-8 text-left space-y-3 shadow-lg border border-gray-700" id="result-list">
             </div>
         
-        <button onclick="showView('view-title')" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold">
+        <button onclick="showView('view-title')" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition">
             タイトルへ戻る
         </button>
     </div>
 
-    <script>
-        // プレイヤーの状態定数
-        const STATUS = {
-            PLAYING: 'playing',       // プレイ中
-            CLEARED: 'cleared',       // 50点あがり
-            ELIMINATED: 'eliminated'  // 失格
-        };
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <div id="modal-icon" class="text-5xl mb-4">⚠️</div>
+            <h3 id="modal-title" class="text-xl font-bold text-white mb-2">Title</h3>
+            <p id="modal-message" class="text-gray-400 text-sm mb-6 leading-relaxed">Message here.</p>
+            <div id="modal-actions" class="flex gap-3 justify-center">
+                </div>
+        </div>
+    </div>
 
+    <script>
+        // --- 設定・定数 ---
+        const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
         let players = [];
         let currentIndex = 0;
-        let clearOrder = []; // 上がった順に名前を入れる
-        let eliminatedStack = []; // 失格した順に名前を入れる（最後尾が一番最近の失格）
+        let clearOrder = [];
+        let eliminatedStack = [];
+        let currentMode = 'snipe'; // 'snipe' or 'break'
 
+        // --- ビュー制御 ---
         function showView(viewId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
             document.getElementById(viewId).classList.add('active-view');
         }
 
+        // --- モーダル制御 ---
+        function showModal(icon, title, message, actions) {
+            document.getElementById('modal-icon').innerText = icon;
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerHTML = message; // HTML許可
+            
+            const actionContainer = document.getElementById('modal-actions');
+            actionContainer.innerHTML = '';
+            
+            actions.forEach(action => {
+                const btn = document.createElement('button');
+                btn.className = `flex-1 py-3 px-4 rounded-lg font-bold text-sm ${action.primary ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`;
+                btn.innerText = action.text;
+                btn.onclick = () => {
+                    closeModal();
+                    if(action.onClick) action.onClick();
+                };
+                actionContainer.appendChild(btn);
+            });
+
+            const overlay = document.getElementById('modal-overlay');
+            overlay.classList.add('modal-active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('modal-active');
+        }
+
+        // --- モード切替（ボタンの見た目変更） ---
+        function switchMode(mode) {
+            currentMode = mode;
+            const btnSnipe = document.getElementById('tab-snipe');
+            const btnBreak = document.getElementById('tab-break');
+            const buttons = document.querySelectorAll('.score-btn');
+
+            if (mode === 'snipe') {
+                // Snipeモードスタイル
+                btnSnipe.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-yellow-600 text-white shadow-md";
+                btnBreak.className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
+                
+                buttons.forEach(btn => {
+                    btn.classList.remove('btn-break');
+                    btn.classList.add('btn-snipe');
+                });
+            } else {
+                // Breakモードスタイル
+                btnSnipe.className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
+                btnBreak.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-md";
+                
+                buttons.forEach(btn => {
+                    btn.classList.remove('btn-snipe');
+                    btn.classList.add('btn-break');
+                });
+            }
+        }
+
+        // --- ゲーム進行ロジック ---
         function goToSetup() { showView('view-setup'); }
 
         function addPlayerInput() {
@@ -153,7 +284,7 @@
             const input = document.createElement('input');
             input.type = "text";
             input.value = "Player " + count;
-            input.className = "player-name-input w-full p-3 bg-gray-800 rounded border border-gray-600 text-white mt-2";
+            input.className = "player-name-input w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold focus:border-yellow-500 outline-none mt-2";
             list.appendChild(input);
         }
 
@@ -165,18 +296,14 @@
 
             inputs.forEach(input => {
                 if(input.value.trim() !== ""){
-                    players.push({ 
-                        name: input.value, 
-                        score: 0, 
-                        miss: 0, 
-                        status: STATUS.PLAYING 
-                    });
+                    players.push({ name: input.value, score: 0, miss: 0, status: STATUS.PLAYING });
                 }
             });
 
-            if(players.length < 1) { alert("プレイヤーがいません"); return; }
+            if(players.length < 1) return;
 
             currentIndex = 0;
+            switchMode('snipe'); // 初期はSnipe
             updateScoreboard();
             showView('view-game');
         }
@@ -184,58 +311,77 @@
         function inputScore(points) {
             const player = players[currentIndex];
 
-            // --- 1. スコア計算処理 ---
             if(points === 0) {
+                // ミス処理
                 player.miss += 1;
                 if(player.miss >= 3) {
-                    // 失格処理
                     player.status = STATUS.ELIMINATED;
-                    eliminatedStack.push(player); // 失格リストに追加
-                    alert(`💀 ${player.name} さん、3回連続ミスで失格...`);
+                    eliminatedStack.push(player);
+                    
+                    showModal('💀', '失格！', `<span class="text-red-400 font-bold text-lg">${player.name}</span><br>3回連続ミスにより脱落です...`, [
+                        { text: '閉じる', primary: false, onClick: () => checkGameEnd() }
+                    ]);
+                    // ここではまだリターンせず、モーダル閉じ後に次へ
+                } else {
+                    // 通常ミス
+                    checkGameEnd(); // ミスでもゲーム終了条件（全員失格など）がありうるか？基本はないがチェック
                 }
             } else {
-                player.miss = 0; // ミスリセット
+                // 得点処理
+                player.miss = 0;
                 let nextScore = player.score + points;
                 
                 if(nextScore === 50) {
-                    // クリア処理
                     player.score = 50;
                     player.status = STATUS.CLEARED;
-                    clearOrder.push(player); // クリアリストに追加
-                    alert(`🎉 ${player.name} さん、50点クリア！`);
+                    clearOrder.push(player);
+                    
+                    showModal('🎉', 'CLEAR!', `<span class="text-yellow-400 font-bold text-2xl">${player.name}</span><br>50点ピッタリ！お見事！`, [
+                        { text: '次へ', primary: true, onClick: () => checkGameEnd() }
+                    ]);
                 } else if(nextScore > 50) {
-                    alert("オーバー！25点に戻ります。");
                     player.score = 25;
+                    showModal('↩️', 'OVER', `<span class="font-bold">${player.name}</span><br>50点を超えました。<br>25点に戻ります。`, [
+                        { text: 'OK', primary: false, onClick: () => checkGameEnd() }
+                    ]);
                 } else {
                     player.score = nextScore;
+                    checkGameEnd(); // 得点時は即次へ
                 }
             }
+        }
 
+        function checkGameEnd() {
             updateScoreboard();
 
-            // --- 2. ゲーム終了判定 ---
-            // まだプレイ中の人数を数える
+            // 終了判定
             const activePlayers = players.filter(p => p.status === STATUS.PLAYING);
-            
-            // 残りが1人以下になったら終了 (例: 3人中2人失格、または3人中2人クリア)
             if (activePlayers.length <= 1) {
-                // もし「全員クリア」or「1人残して他全員失格/クリア」なら終了
-                finishGame();
-                return; 
+                // ゲーム終了
+                setTimeout(finishGame, 300); // 少し間を開けてリザルトへ
+            } else {
+                // 次のターンへ
+                proceedTurn();
             }
+        }
 
-            // --- 3. 次のプレイヤーへ（失格・クリア済みの人はスキップ） ---
+        function proceedTurn() {
             let loopCount = 0;
             do {
                 currentIndex = (currentIndex + 1) % players.length;
                 loopCount++;
-                // 全員チェックしても誰もいなければループ脱出（念のため）
                 if(loopCount > players.length) break;
             } while (players[currentIndex].status !== STATUS.PLAYING);
 
             updateScoreboard();
-            // 名前表示更新
             document.getElementById('current-player-name').innerText = players[currentIndex].name;
+        }
+
+        function confirmReset() {
+            showModal('🔄', 'リセット', '試合を中止してタイトルに戻りますか？', [
+                { text: 'キャンセル', primary: false },
+                { text: 'リセットする', primary: true, onClick: () => showView('view-title') }
+            ]);
         }
 
         function updateScoreboard() {
@@ -244,84 +390,72 @@
 
             players.forEach((p, index) => {
                 const tr = document.createElement('tr');
-                
-                // 行のスタイル判定
-                let rowClass = "row-playing";
+                let rowClass = "border-b border-gray-700 transition-colors";
                 let statusIcon = "";
-                
+                let nameStyle = "text-gray-300";
+
                 if (p.status === STATUS.ELIMINATED) {
-                    rowClass = "row-eliminated";
+                    rowClass = "row-eliminated border-b border-gray-800";
                     statusIcon = "💀";
                 } else if (p.status === STATUS.CLEARED) {
-                    rowClass = "row-cleared";
+                    rowClass = "row-cleared border-b border-gray-700";
                     statusIcon = "👑";
+                    nameStyle = "text-green-400";
                 } else if (index === currentIndex) {
-                    rowClass = "current-turn"; // プレイ中かつ現在の番
-                } else {
-                    rowClass = "border-b border-gray-700"; // 待機中
+                    rowClass = "current-turn border-b border-yellow-900";
+                    nameStyle = "text-white";
                 }
 
                 tr.className = rowClass;
 
-                // ミス表示
                 let missHtml = "";
-                for(let i=0; i<3; i++) missHtml += (i < p.miss) ? "❌" : "<span class='text-gray-600'>●</span>";
+                for(let i=0; i<3; i++) {
+                    missHtml += (i < p.miss) ? "<span class='text-red-500 mx-[1px]'>✖</span>" : "<span class='text-gray-700 mx-[1px]'>●</span>";
+                }
 
                 tr.innerHTML = `
-                    <td class="py-3 pl-2 font-bold flex items-center">
-                        ${statusIcon} ${p.name}
-                        ${index === currentIndex && p.status === STATUS.PLAYING ? '<span class="text-xs ml-1 animate-pulse">◀</span>' : ''}
+                    <td class="py-3 pl-3 flex items-center ${nameStyle}">
+                        <span class="w-5 text-center mr-1">${statusIcon}</span>
+                        ${p.name}
+                        ${index === currentIndex && p.status === STATUS.PLAYING ? '<span class="text-xs ml-2 text-yellow-400 animate-pulse">◀ TURN</span>' : ''}
                     </td>
-                    <td class="text-center text-xs tracking-tighter">${missHtml}</td>
-                    <td class="text-right pr-4 font-mono text-xl font-bold">${p.status === STATUS.ELIMINATED ? '-' : p.score}</td>
+                    <td class="text-center text-[10px]">${missHtml}</td>
+                    <td class="text-right pr-4 font-mono text-xl ${p.status === STATUS.CLEARED ? 'text-green-400' : 'text-white'}">
+                        ${p.status === STATUS.ELIMINATED ? '-' : p.score}
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
         function finishGame() {
-            // 順位を作成する
-            // 1. クリアした人（順序通り）
-            // 2. まだプレイ中の人（生き残り - 事実上のクリア扱いとしてクリア組の次へ）
-            // 3. 失格した人（失格が遅かった人が上位 -> Stackの後ろから取り出す）
-
             const survivors = players.filter(p => p.status === STATUS.PLAYING);
-            
-            // 最終ランキング作成
             let finalRanking = [];
-
-            // 1位〜: 既に50点で抜けた人たち
             finalRanking = finalRanking.concat(clearOrder);
-
-            // 次: 最後まで生き残っていた人（得点関係なく、生き残りが偉い）
-            // ※もし生き残りが複数いる場合は得点順にする？今回は「残り1人になったら終了」なので通常は1名
             finalRanking = finalRanking.concat(survivors);
-
-            // 最後: 失格者たち（失格が遅かった順 = Stackの後ろのほうが順位が高い）
-            // Stack: [最初の失格者, 2番目の失格者...] 
-            // 逆順に結合すれば、2番目の失格者の方が上位に来る
             finalRanking = finalRanking.concat(eliminatedStack.reverse());
 
-            // 画面表示
             const resultList = document.getElementById('result-list');
             resultList.innerHTML = "";
 
             finalRanking.forEach((p, i) => {
-                let rankStyle = "text-white";
-                let icon = `${i+1}位`;
-                if(i===0) { rankStyle="text-yellow-400 font-bold text-xl"; icon="🥇 1st"; }
-                if(i===1) { rankStyle="text-gray-300 font-bold text-lg"; icon="🥈 2nd"; }
-                if(i===2) { rankStyle="text-orange-400 font-bold"; icon="🥉 3rd"; }
+                let rankColor = "text-gray-400";
+                let icon = `${i+1}th`;
+                if(i===0) { rankColor="text-yellow-400"; icon="🥇 1st"; }
+                if(i===1) { rankColor="text-gray-300"; icon="🥈 2nd"; }
+                if(i===2) { rankColor="text-orange-400"; icon="🥉 3rd"; }
 
-                // ステータス補足
                 let detail = `${p.score}pt`;
-                if (p.status === STATUS.CLEARED) detail = "Clear!";
-                if (p.status === STATUS.ELIMINATED) detail = "失格";
+                if (p.status === STATUS.CLEARED) detail = "CLEAR";
+                if (p.status === STATUS.ELIMINATED) detail = "LOSE";
 
                 resultList.innerHTML += `
-                    <div class="flex justify-between items-center border-b border-gray-700 pb-2">
-                        <div class="${rankStyle}">${icon} <span class="ml-2">${p.name}</span></div>
-                        <div class="text-gray-400 text-sm">${detail}</div>
+                    <div class="flex justify-between items-center border-b border-gray-700 last:border-0 pb-3 mb-2 last:mb-0">
+                        <div class="flex items-center">
+                            <span class="${rankColor} font-black text-xl w-16">${icon}</span>
+                            <span class="text-white font-bold text-lg">${p.name}</span>
+                        </div>
+                        <div class="text-gray-400 font-mono font-bold">${detail}</div>
                     </div>
                 `;
             });
