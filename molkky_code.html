@@ -39,8 +39,7 @@
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
 
-        /* スタッツ数値のスタイル */
-        .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
+        .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 2px; font-weight: normal; font-family: sans-serif; }
         .stat-val { font-size: 1.1rem; font-weight: 900; font-family: 'Roboto', sans-serif; }
 
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -49,7 +48,6 @@
         /* チャートのタップギミック */
         .chart-label-group { cursor: pointer; }
         .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
-        /* タップ中（active）またはホバーで数値を表示、ラベルを非表示 */
         .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
         .chart-label-group:active .chart-value-text, .chart-label-group:hover .chart-value-text { display: block; }
     </style>
@@ -58,7 +56,7 @@
 
     <button onclick="goHome()" class="fixed top-3 left-3 z-50 w-10 h-10 bg-gray-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg border border-gray-600 hover:bg-gray-700 active:scale-95">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            <path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/>
         </svg>
     </button>
 
@@ -130,7 +128,6 @@
         <div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10">
             <h2 class="text-2xl font-black text-white text-center mb-1">RECORDS</h2>
             <p class="text-xs text-gray-500 text-center mb-4">戦績リスト (平均順位順)</p>
-            
             <div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700">
                 <div class="w-10 text-center">
                     <span class="block text-xs font-bold text-white leading-none">順位</span>
@@ -358,6 +355,24 @@
                     </div>`;
                 con.appendChild(row);
             });
+
+            // ★★★ 各指標の説明（用語集）を追加 ★★★
+            const guide = document.createElement('div');
+            guide.className = "mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400";
+            guide.innerHTML = `
+                <h3 class="font-bold text-white mb-2 text-sm border-b border-gray-600 pb-1">📊 指標ガイド</h3>
+                <ul class="space-y-2">
+                    <li><strong class="text-yellow-400">平均点 (AVG / PPT):</strong> 1投あたりの平均得点。<br>※ 5.0以上で上級者レベル。</li>
+                    <li><strong class="text-white">勝率 (WIN RATE):</strong> 1位を獲得した確率。</li>
+                    <li><strong class="text-white">命中率 (ACCURACY):</strong> ミス(0点)をしなかった確率。</li>
+                    <li><strong class="text-white">狙撃率 (SNIPE):</strong> 1本倒しで得点した割合。</li>
+                    <li><strong class="text-white">勝負強さ (CLUTCH):</strong> 37点以上での得点成功率。</li>
+                    <li><strong class="text-white">得点力 (SCORING):</strong> 平均得点の高さ(攻撃力)。</li>
+                    <li><strong class="text-white">ラス回避 (AVOID LAST):</strong> 最下位にならなかった確率。</li>
+                </ul>
+            `;
+            con.appendChild(guide);
+
             showView('view-records');
         }
 
@@ -385,7 +400,7 @@
             ];
 
             let pts="", lines="", lbls="";
-            const cx=150, cy=150, r=90; // ViewBox拡大
+            const cx=150, cy=150, r=90;
             for(let i=0;i<6;i++){
                 const a = (Math.PI*2*i/6)-(Math.PI/2);
                 const v = params[i].v;
