@@ -11,9 +11,11 @@
         body { 
             background-color: #111827; color: white; 
             font-family: 'Roboto', 'Noto Sans JP', sans-serif; 
-            touch-action: manipulation;
+            touch-action: manipulation; /* ダブルタップズーム防止 */
             height: 100dvh; width: 100vw; overflow: hidden;
             display: flex; flex-direction: column;
+            user-select: none; /* 長押し選択防止 */
+            -webkit-user-select: none;
         }
         .view-section { display: none; height: 100%; width: 100%; flex-direction: column; }
         .active-view { display: flex; }
@@ -49,12 +51,21 @@
 
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        
+        /* チャートのインタラクション */
+        .chart-label-group { cursor: pointer; }
+        .chart-value-text { font-weight: 900; fill: #facc15; font-size: 16px; display: none; }
+        /* タップ中（active）またはホバーで数値を表示、ラベルを非表示 */
+        .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
+        .chart-label-group:active .chart-value-text, .chart-label-group:hover .chart-value-text { display: block; }
     </style>
 </head>
 <body class="max-w-md mx-auto relative shadow-2xl">
 
     <button onclick="goHome()" class="fixed top-3 left-3 z-50 w-10 h-10 bg-gray-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg border border-gray-600 hover:bg-gray-700 active:scale-95">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+        </svg>
     </button>
 
     <div id="view-title" class="view-section active-view justify-center items-center p-6 bg-gray-900">
@@ -287,13 +298,15 @@
             hist.forEach(m => {
                 m.ranking.forEach((name, idx) => {
                     if(!pStats[name]) pStats[name] = { 
-                        ranks:[], wins:0, totalGames:0, 
+                        ranks:[], wins:0, totalGames:0, lastPlaceCount:0,
                         stats:{snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0},
                         last10Stats: []
                     };
                     let ps = pStats[name];
                     ps.ranks.push(idx+1);
                     if(idx===0) ps.wins++;
+                    // ラス判定 (順位が参加人数と同じならラス)
+                    if(idx === m.ranking.length - 1) ps.lastPlaceCount++;
                     ps.totalGames++;
                     
                     if(m.details && m.details[name]) {
@@ -306,6 +319,7 @@
                             rank: idx+1, 
                             scoreAvg: d.throws>0 ? (d.totalPoints/d.throws) : 0,
                             win: idx===0,
+                            isLast: idx === m.ranking.length - 1, // ラス判定
                             finished: m.details[name].totalPoints === 50 || d.score === 50
                         });
                     }
@@ -337,7 +351,7 @@
                     <div class="player-detail px-4 bg-gray-900 border-t border-gray-800">
                         <div class="py-4 space-y-6">
                             <div class="chart-container text-center">
-                                <h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR</h4>
+                                <h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR (TAP LABEL)</h4>
                                 ${genRadar(p.data)}
                             </div>
                             <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
@@ -362,49 +376,67 @@
             const vThrows = s.snipes+s.breaks||1;
             const tClutch = s.clutchHits+s.clutchMisses||1;
 
-            // 5 Parameters (0-100 scale)
+            // 6 Parameters (0-100 scale)
             const winRate = Math.round((d.wins/d.totalGames)*100);
             const acc = Math.round(((tThrows-s.misses)/tThrows)*100);
             const snipe = Math.round((s.snipes/vThrows)*100);
             const clutch = Math.round((s.clutchHits/tClutch)*100);
-            const power = Math.min(100, Math.round(((s.totalPoints/s.throws || 0)/7) * 100)); // 7点を100点満点とする
+            const power = Math.min(100, Math.round(((s.totalPoints/s.throws || 0)/7) * 100));
+            const avoidLast = Math.round(((d.totalGames - d.lastPlaceCount) / d.totalGames) * 100);
 
             const params = [
                 {l:"勝率", e:"WIN RATE", v:winRate},
                 {l:"命中率", e:"ACCURACY", v:acc},
                 {l:"狙撃率", e:"SNIPE", v:snipe},
                 {l:"勝負強さ", e:"CLUTCH", v:clutch},
-                {l:"得点力", e:"SCORING", v:power}
+                {l:"得点力", e:"SCORING", v:power},
+                {l:"ラス回避", e:"AVOID LAST", v:avoidLast}
             ];
 
             let pts="", lines="", lbls="";
             const cx=100, cy=100, r=70;
-            for(let i=0;i<5;i++){
-                const a = (Math.PI*2*i/5)-(Math.PI/2);
+            // 6角形 (i < 6)
+            for(let i=0;i<6;i++){
+                const a = (Math.PI*2*i/6)-(Math.PI/2);
                 const v = params[i].v;
                 pts += `${cx+(r*(v/100))*Math.cos(a)},${cy+(r*(v/100))*Math.sin(a)} `;
                 lines += `<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#374151"/>`;
                 
-                const lx = cx+(r+22)*Math.cos(a);
-                const ly = cy+(r+22)*Math.sin(a);
-                lbls += `<text x="${lx}" y="${ly-5}" font-size="10" font-weight="900" fill="#fff" text-anchor="middle" font-family="'Noto Sans JP', sans-serif">${params[i].l}</text>
-                         <text x="${lx}" y="${ly+4}" font-size="7" fill="#6b7280" text-anchor="middle" font-family="'Roboto', sans-serif">${params[i].e}</text>`;
+                const lx = cx+(r+25)*Math.cos(a);
+                const ly = cy+(r+25)*Math.sin(a);
+                
+                // タップ用ギミック (Label Group)
+                lbls += `
+                <g class="chart-label-group" oncontextmenu="return false;">
+                    <text x="${lx}" y="${ly-5}" font-size="10" font-weight="900" fill="#fff" text-anchor="middle" font-family="'Noto Sans JP', sans-serif" class="chart-text">${params[i].l}</text>
+                    <text x="${lx}" y="${ly+4}" font-size="6" fill="#6b7280" text-anchor="middle" font-family="'Roboto', sans-serif" class="chart-text">${params[i].e}</text>
+                    
+                    <text x="${lx}" y="${ly+2}" text-anchor="middle" class="chart-value-text">${params[i].v}%</text>
+                </g>`;
             }
-            return `<svg viewBox="0 0 200 200" class="w-full"><circle cx="100" cy="100" r="70" fill="none" stroke="#374151"/><circle cx="100" cy="100" r="35" fill="none" stroke="#374151" stroke-dasharray="2,2"/>${lines}<polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>${lbls}</svg>`;
+            // ViewBoxを広げて(-40)文字切れを防ぐ
+            return `<svg viewBox="-40 -40 280 280" class="w-full">
+                <circle cx="100" cy="100" r="70" fill="none" stroke="#374151"/>
+                <circle cx="100" cy="100" r="35" fill="none" stroke="#374151" stroke-dasharray="2,2"/>
+                ${lines}
+                <polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>
+                ${lbls}
+            </svg>`;
         }
 
         function genLast10Stats(arr) {
             const last10 = arr.slice(-10);
             const wins = last10.filter(x=>x.win).length;
+            const lastAvoid = last10.filter(x=>!x.isLast).length; // ラス回避数
             const avgRank = (last10.reduce((a,b)=>a+b.rank,0)/last10.length).toFixed(1);
             const avgScore = (last10.reduce((a,b)=>a+b.scoreAvg,0)/last10.length).toFixed(1);
             const finishRate = Math.round((last10.filter(x=>x.finished).length / last10.length)*100); 
             
             return `
-                <div class="grid grid-cols-4 gap-2 text-center">
+                <div class="grid grid-cols-3 gap-2 text-center">
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center">
                         <span class="stat-val text-yellow-400">${Math.round(wins/last10.length*100)}%</span>
-                        <span class="stat-label">勝率(Win%)</span>
+                        <span class="stat-label">勝率</span>
                     </div>
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center">
                         <span class="stat-val text-white">${avgRank}</span>
@@ -417,6 +449,10 @@
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center">
                         <span class="stat-val text-green-400">${finishRate}%</span>
                         <span class="stat-label">上がり率</span>
+                    </div>
+                    <div class="bg-gray-700 p-2 rounded flex flex-col justify-center col-span-2">
+                        <span class="stat-val text-blue-400">${Math.round(lastAvoid/last10.length*100)}%</span>
+                        <span class="stat-label">ラス回避率</span>
                     </div>
                 </div>`;
         }
