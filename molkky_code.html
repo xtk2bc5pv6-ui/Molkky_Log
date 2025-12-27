@@ -2,202 +2,225 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Molkky Log Site</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mölkky Simple Log</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #1a1a1a; color: #fff; font-family: sans-serif; }
-        /* 入力ボタンのスタイル */
-        .btn-numpad { height: 65px; font-size: 1.5rem; font-weight: bold; border-radius: 12px; transition: background 0.1s; }
-        .btn-numpad:active { transform: scale(0.95); }
-        .hidden-view { display: none; }
+        /* 全体設定 */
+        body { 
+            background-color: #1a1a1a; 
+            color: #fff; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: manipulation; /* スマホでの操作遅延を防ぐ */
+        }
+
+        /* モルックのスキットル風ボタン */
+        .pin-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #d4a373; /* 木の色 */
+            color: #3e2723; /* 文字色 */
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-center: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 -4px 0 rgba(0,0,0,0.2);
+            transition: transform 0.1s, background-color 0.1s;
+        }
+        .pin-btn:active {
+            transform: scale(0.95);
+            background-color: #bc8a5f;
+        }
+
+        /* ミスボタン */
+        .miss-btn {
+            width: 100%;
+            padding: 15px;
+            background-color: #ef4444;
+            color: white;
+            font-weight: bold;
+            border-radius: 12px;
+            box-shadow: 0 4px 0 #991b1b;
+        }
+        .miss-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
+<body class="h-screen flex flex-col max-w-md mx-auto relative">
 
-    <div class="w-full max-w-md bg-gray-900 p-6 rounded-xl shadow-2xl h-[90vh] flex flex-col relative">
-
-        <div id="view-login" class="flex flex-col justify-center h-full space-y-6">
-            <div class="text-center">
-                <h1 class="text-3xl font-bold text-green-400 mb-2">Mölkky Log 🪵</h1>
-                <p class="text-gray-400 text-sm">Authorized Personnel Only</p>
+    <div class="bg-gray-800 p-4 pb-6 rounded-b-3xl shadow-lg z-10">
+        <div class="flex justify-between items-center mb-2">
+            <div class="flex flex-col">
+                <span class="text-xs text-gray-400">PLAYER</span>
+                <input type="text" value="Player 1" class="bg-transparent text-xl font-bold text-white w-32 focus:outline-none focus:border-b border-gray-500">
             </div>
             
-            <div class="space-y-4">
-                <input type="email" id="email" placeholder="メールアドレス" class="w-full p-4 rounded bg-gray-800 text-white border border-gray-700 focus:border-green-500 outline-none">
-                <input type="password" id="password" placeholder="パスワード" class="w-full p-4 rounded bg-gray-800 text-white border border-gray-700 focus:border-green-500 outline-none">
+            <div class="flex flex-col items-end">
+                <span class="text-xs text-gray-400">MISS</span>
+                <div id="miss-display" class="flex space-x-1 text-2xl h-8">
+                    <span class="text-gray-700">●</span>
+                    <span class="text-gray-700">●</span>
+                    <span class="text-gray-700">●</span>
+                </div>
             </div>
-
-            <button onclick="login()" class="w-full p-4 bg-green-600 hover:bg-green-500 rounded text-white font-bold transition">ログイン</button>
-            <p id="login-msg" class="text-red-400 text-center text-sm min-h-[20px]"></p>
         </div>
 
-        <div id="view-game" class="hidden-view flex flex-col h-full">
-            <div class="flex justify-between items-end mb-6 pb-4 border-b border-gray-700">
-                <div>
-                    <div class="text-xs text-gray-500">PLAYER</div>
-                    <div id="current-player-name" class="text-xl font-bold text-yellow-400">Player 1</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-xs text-gray-500">SCORE</div>
-                    <div id="current-score-display" class="text-5xl font-bold font-mono">0</div>
-                </div>
-            </div>
-
-            <div class="bg-gray-800 rounded-lg p-2 mb-4 flex justify-between items-center">
-                <span class="text-xs text-gray-400 pl-2">HIT TYPE</span>
-                <div class="flex space-x-2">
-                    <button id="mode-break" onclick="setMode('break')" class="flex-1 px-4 py-2 rounded bg-blue-600 text-white font-bold text-sm ring-2 ring-white">複数 (Break)</button>
-                    <button id="mode-snipe" onclick="setMode('snipe')" class="flex-1 px-4 py-2 rounded bg-gray-700 text-gray-400 font-bold text-sm">1本 (Snipe)</button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-3 gap-3 mb-4 flex-grow content-start">
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(7)">7</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(8)">8</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(9)">9</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(4)">4</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(5)">5</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(6)">6</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(1)">1</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(2)">2</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(3)">3</button>
-                
-                <button class="btn-numpad bg-red-900/50 text-red-300 border border-red-900 hover:bg-red-900" onclick="inputScore(0)">MISS</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(10)">10</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(11)">11</button>
-                <button class="btn-numpad bg-gray-700 hover:bg-gray-600" onclick="inputScore(12)">12</button>
-            </div>
-
-            <div class="mt-auto pt-2 border-t border-gray-700">
-                <div id="log-display" class="h-16 overflow-y-auto text-xs text-gray-400 font-mono space-y-1">
-                    <div class="text-gray-600">-- No Data --</div>
-                </div>
-                <button onclick="logout()" class="text-xs text-gray-600 underline mt-2 w-full text-center">ログアウト</button>
-            </div>
+        <div class="text-center mt-2">
+            <div class="text-sm text-gray-400 mb-1">CURRENT SCORE</div>
+            <div id="score-display" class="text-7xl font-mono font-bold text-yellow-400 leading-none">0</div>
+            <div class="text-sm text-gray-500 mt-2">Target: 50</div>
         </div>
     </div>
 
-    <script type="module">
-        // 必要な機能をWebから読み込みます（インストール不要）
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    <div class="flex-grow overflow-y-auto p-4 space-y-2" id="log-area">
+        <div class="text-center text-xs text-gray-600 mt-4">-- 試合開始 --</div>
+    </div>
 
-        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-        // ここにFirebaseの設定を貼り付けてください
-        // コンソールでコピーした const firebaseConfig = {...} をそのまま上書きしてください
-        const firebaseConfig = {
-            apiKey: "ここにAPIキーを貼る",
-            authDomain: "xxx.firebaseapp.com",
-            projectId: "xxx",
-            storageBucket: "xxx.appspot.com",
-            messagingSenderId: "xxx",
-            appId: "xxx"
-        };
-        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    <div class="bg-gray-900 p-4 pb-8 rounded-t-3xl shadow-inner">
+        
+        <div class="flex justify-center mb-6 space-x-4 text-sm">
+            <label class="flex items-center space-x-2">
+                <input type="radio" name="mode" value="break" checked class="accent-blue-500">
+                <span class="text-gray-400">複数(本数)</span>
+            </label>
+            <label class="flex items-center space-x-2">
+                <input type="radio" name="mode" value="snipe" class="accent-green-500">
+                <span class="text-gray-400">1本(番号)</span>
+            </label>
+        </div>
 
-        // アプリの初期化
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        <div class="flex flex-col items-center gap-3 mb-6">
+            <div class="flex gap-4">
+                <button class="pin-btn" onclick="addScore(7)">7</button>
+                <button class="pin-btn" onclick="addScore(9)">9</button>
+                <button class="pin-btn" onclick="addScore(8)">8</button>
+            </div>
+            <div class="flex gap-4">
+                <button class="pin-btn" onclick="addScore(5)">5</button>
+                <button class="pin-btn" onclick="addScore(11)">11</button>
+                <button class="pin-btn" onclick="addScore(12)">12</button>
+                <button class="pin-btn" onclick="addScore(6)">6</button>
+            </div>
+            <div class="flex gap-4">
+                <button class="pin-btn" onclick="addScore(3)">3</button>
+                <button class="pin-btn" onclick="addScore(10)">10</button>
+                <button class="pin-btn" onclick="addScore(4)">4</button>
+            </div>
+            <div class="flex gap-4">
+                <button class="pin-btn" onclick="addScore(1)">1</button>
+                <button class="pin-btn" onclick="addScore(2)">2</button>
+            </div>
+        </div>
 
-        // ゲームの状態管理
-        let currentUser = null;
+        <div class="grid grid-cols-4 gap-4">
+            <button onclick="resetGame()" class="col-span-1 bg-gray-700 text-gray-400 rounded-xl text-xs font-bold">RESET</button>
+            <button onclick="addScore(0)" class="col-span-3 miss-btn text-xl">MISS (0)</button>
+        </div>
+    </div>
+
+    <script>
+        // ゲームの状態変数
         let currentScore = 0;
-        let isSingleMode = false; // 初期値はブレイク(複数)
+        let missCount = 0;
+        let history = []; // 「戻る」機能用（今回はシンプル化のためログ表示のみ）
 
-        // ログイン処理
-        window.login = () => {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            signInWithEmailAndPassword(auth, email, pass)
-                .catch(error => {
-                    console.error(error);
-                    document.getElementById('login-msg').innerText = "ログイン失敗: メールかパスワードが違います";
-                });
-        };
+        const scoreEl = document.getElementById('score-display');
+        const missEl = document.getElementById('miss-display');
+        const logArea = document.getElementById('log-area');
 
-        window.logout = () => signOut(auth);
+        // 点数追加処理
+        function addScore(points) {
+            const isSnipe = document.querySelector('input[name="mode"]:checked').value === 'snipe';
+            const previousScore = currentScore;
 
-        // ログイン状態の監視（画面切り替え）
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                document.getElementById('view-login').classList.add('hidden-view');
-                document.getElementById('view-game').classList.remove('hidden-view');
+            // 1. ミス判定と処理
+            if (points === 0) {
+                missCount++;
+                logAction(previousScore, 0, "MISS");
+                updateMissDisplay();
+                
+                if (missCount >= 3) {
+                    setTimeout(() => alert("失格！ (3回連続ミス)"), 100);
+                }
+                return; // 点数計算せず終了
             } else {
-                currentUser = null;
-                document.getElementById('view-login').classList.remove('hidden-view');
-                document.getElementById('view-game').classList.add('hidden-view');
+                // 得点した場合はミスカウントをリセット
+                missCount = 0;
+                updateMissDisplay();
             }
-        });
 
-        // モード切替（1本打ち vs 複数）
-        window.setMode = (mode) => {
-            const btnBreak = document.getElementById('mode-break');
-            const btnSnipe = document.getElementById('mode-snipe');
-            
-            if (mode === 'snipe') {
-                isSingleMode = true;
-                // Snipe ON
-                btnSnipe.className = "flex-1 px-4 py-2 rounded bg-green-600 text-white font-bold text-sm ring-2 ring-white";
-                // Break OFF
-                btnBreak.className = "flex-1 px-4 py-2 rounded bg-gray-700 text-gray-400 font-bold text-sm";
-            } else {
-                isSingleMode = false;
-                // Break ON
-                btnBreak.className = "flex-1 px-4 py-2 rounded bg-blue-600 text-white font-bold text-sm ring-2 ring-white";
-                // Snipe OFF
-                btnSnipe.className = "flex-1 px-4 py-2 rounded bg-gray-700 text-gray-400 font-bold text-sm";
-            }
-        };
-
-        // スコア入力処理
-        window.inputScore = async (points) => {
-            if (!currentUser) return;
-
-            const scoreBefore = currentScore;
+            // 2. 点数加算ルール
             let nextScore = currentScore + points;
 
-            // ルール判定
             if (nextScore === 50) {
-                alert("🎉 50点クリア！おめでとう！");
-                nextScore = 0; // 次のゲームへ（簡易リセット）
+                currentScore = 50;
+                scoreEl.innerText = 50;
+                scoreEl.classList.add("text-green-400"); // 色を変える
+                logAction(previousScore, points, "FINISH!");
+                setTimeout(() => alert("🎉 50点ピッタリ！勝利！"), 100);
+                return;
             } else if (nextScore > 50) {
-                // 50点オーバーで25点へ
-                nextScore = 25; 
+                currentScore = 25; // 25点に戻る
+                logAction(previousScore, points, "OVER -> 25");
+                alert("オーバー！25点に戻ります。");
+            } else {
+                currentScore = nextScore;
+                logAction(previousScore, points, isSnipe ? "Snipe" : "Break");
             }
 
             // 画面更新
-            currentScore = nextScore;
-            document.getElementById('current-score-display').innerText = currentScore;
+            scoreEl.innerText = currentScore;
+            
+            // ログエリアを一番下にスクロール
+            logArea.scrollTop = logArea.scrollHeight;
+        }
 
-            // ログの更新
-            const type = points === 0 ? "MISS" : (isSingleMode ? "SNIPE" : "BREAK");
-            const logHTML = `<div class="border-b border-gray-800 pb-1">
-                <span class="text-green-400">${points}pt</span> <span class="text-gray-500 text-[10px]">${type}</span> 
-                <span class="text-gray-600">(${scoreBefore}→${nextScore})</span>
-            </div>`;
-            const logDiv = document.getElementById('log-display');
-            logDiv.innerHTML = logHTML + logDiv.innerHTML;
+        // ログを表示に追加
+        function logAction(prev, points, type) {
+            const div = document.createElement('div');
+            div.className = "flex justify-between text-sm border-b border-gray-800 pb-1";
+            
+            // 色分け
+            let pointColor = points === 0 ? "text-red-400" : "text-green-400";
+            
+            div.innerHTML = `
+                <span class="text-gray-500 w-12">${history.length + 1}投目</span>
+                <span class="${pointColor} font-bold w-12 text-center">${points}pt</span>
+                <span class="text-gray-600 text-xs w-20 text-right">${type}</span>
+                <span class="text-white font-mono ml-auto">${prev} → ${currentScore}</span>
+            `;
+            logArea.appendChild(div);
+            history.push({ score: currentScore, miss: missCount });
+        }
 
-            // データベース保存
-            try {
-                await addDoc(collection(db, "game_logs"), {
-                    uid: currentUser.uid,
-                    user_email: currentUser.email,
-                    score_scored: points,
-                    score_before: scoreBefore,
-                    is_single: isSingleMode,
-                    is_miss: points === 0,
-                    timestamp: serverTimestamp()
-                });
-            } catch (e) {
-                console.error("保存エラー:", e);
-                alert("データの保存に失敗しました。ネット接続を確認してください。");
+        // ミス表示（●●●）の更新
+        function updateMissDisplay() {
+            let html = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < missCount) {
+                    html += '<span class="text-red-500">❌</span>';
+                } else {
+                    html += '<span class="text-gray-700">●</span>';
+                }
             }
-        };
+            missEl.innerHTML = html;
+        }
+
+        // リセット処理
+        function resetGame() {
+            if(!confirm("スコアをリセットしますか？")) return;
+            currentScore = 0;
+            missCount = 0;
+            history = [];
+            scoreEl.innerText = 0;
+            scoreEl.classList.remove("text-green-400");
+            logArea.innerHTML = '<div class="text-center text-xs text-gray-600 mt-4">-- 試合開始 --</div>';
+            updateMissDisplay();
+        }
     </script>
 </body>
 </html>
