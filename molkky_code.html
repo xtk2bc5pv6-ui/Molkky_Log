@@ -75,6 +75,28 @@
     <div id="app-container"></div>
 
     <script>
+        // --- 初期データ (レガシーデータ) ---
+        // ※ 提供されたデータに基づき、1試合10投として内部数値を逆算設定
+        // ※ 未計測データ(狙撃率など)は画面上では "-" (空欄) になります
+        const LEGACY_STATS = {
+            "吉谷悠": { 
+                games: 66, wins: 25, 
+                // ファウル率33% -> 命中率67%
+                // 平均4点 -> 合計点 = 投数 * 4
+                throws: 660, misses: 218, points: 2640 
+            },
+            "石井山拓登": { 
+                games: 61, wins: 26, 
+                // ファウル率23% -> 命中率77%
+                throws: 610, misses: 140, points: 2440
+            },
+            "森岡凜太郎": { 
+                games: 35, wins: 14, 
+                // ファウル率28% -> 命中率72%
+                throws: 350, misses: 98, points: 1400
+            }
+        };
+        
         // --- State ---
         const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
         let players = [], currentIndex = 0, clearOrder = [], eliminatedStack = [], currentMode = 'snipe';
@@ -110,7 +132,6 @@
                             <span class="mr-3">📊</span> 記録・分析
                         </button>
                     </div>
-                    <button onclick="generateDemoData()" class="mt-8 text-xs text-gray-600 underline">デモデータ生成 (テスト用)</button>
                 </div>
             `;
         }
@@ -127,7 +148,7 @@
                     </div>
                 </div>
             `;
-            if(players.length === 0) renderInputs(['Player 1', 'Player 2']);
+            if(players.length === 0) renderInputs(['吉谷悠', '石井山拓登', '森岡凜太郎']);
             else renderInputs(players.map(p => p.name));
         }
 
@@ -508,4 +529,5 @@
     </script>
 </body>
 </html>
+
 
