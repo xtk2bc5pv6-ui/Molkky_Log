@@ -39,7 +39,7 @@
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
 
-        .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 2px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
+        .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
         .stat-val { font-size: 1.1rem; font-weight: 900; font-family: 'Roboto', sans-serif; }
 
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -55,7 +55,7 @@
 <body class="max-w-md mx-auto relative shadow-2xl">
 
     <button onclick="goHome()" class="fixed top-3 left-3 z-50 w-10 h-10 bg-gray-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg border border-gray-600 hover:bg-gray-700 active:scale-95">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
             <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
         </svg>
     </button>
@@ -421,7 +421,7 @@
                     <text x="${lx}" y="${ly+4}" text-anchor="middle" class="chart-value-text">${params[i].v}%</text>
                 </g>`;
             }
-            return `<svg viewBox="-20 -20 340 340" class="w-full">
+            return `<svg viewBox="0 0 300 300" class="w-full">
                 <circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/>
                 <circle cx="150" cy="150" r="45" fill="none" stroke="#374151" stroke-dasharray="2,2"/>
                 ${lines}
