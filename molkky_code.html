@@ -60,21 +60,19 @@
     <div id="app-container"></div>
 
     <script>
-        // --- ★ 初期データ (指定の3名) ★ ---
+        // --- ★ 初期データ (レガシーデータ) ★ ---
         const LEGACY_STATS = {
             "吉谷悠": { 
                 games: 66, wins: 25, 
-                // ファウル33% -> 命中67%, 平均4点
+                // 1位以外は2.5位として計算するためのデータ
                 throws: 660, misses: 218, points: 2640 
             },
             "石井山拓登": { 
                 games: 61, wins: 26, 
-                // ファウル23% -> 命中77%, 平均4点
                 throws: 610, misses: 140, points: 2440
             },
             "森岡凜太郎": { 
                 games: 35, wins: 14, 
-                // ファウル28% -> 命中72%, 平均4点
                 throws: 350, misses: 98, points: 1400
             }
         };
@@ -99,7 +97,6 @@
 
         // --- 1. HOME画面 ---
         function renderHome() {
-            // シンプルにボタンのみ
             app.innerHTML = `
                 <div class="flex-grow flex flex-col justify-center items-center p-6 bg-gray-900">
                     <div class="mb-10 text-center">
@@ -114,8 +111,16 @@
                             <span class="mr-3">📊</span> 記録・分析
                         </button>
                     </div>
+                    <button onclick="resetAllData()" class="mt-8 text-xs text-red-500 underline font-bold">⚠️ 全データ消去 (リセット)</button>
                 </div>
             `;
+        }
+
+        function resetAllData() {
+            if(!confirm("【注意】\n保存されている全ての記録を消去します。\n(初期データ状態に戻ります)\nよろしいですか？")) return;
+            localStorage.removeItem('molkky_match_history');
+            alert("データをリセットしました。");
+            router('records'); // 確認のためレコード画面へ
         }
 
         // --- 2. セットアップ画面 ---
@@ -130,7 +135,6 @@
                     </div>
                 </div>
             `;
-            // 初期メンバー指定
             if(players.length === 0) renderInputs(['吉谷悠', '石井山拓登', '森岡凜太郎']);
             else renderInputs(players.map(p => p.name));
         }
@@ -323,29 +327,35 @@
             const hist = JSON.parse(localStorage.getItem('molkky_match_history')||'[]');
             const con = document.getElementById('records-container');
             
-            // ★ 初期データ(Legacy)があるため「データなし」判定は削除
-
+            // ★ 集計 (初期データ + 履歴)
             let pStats = {};
 
-            // 1. 初期データ(Legacy)読み込み
+            // 1. 初期データ(Legacy)
             for (const [name, d] of Object.entries(LEGACY_STATS)) {
+                // 平均順位計算用: 1位以外は2.5位と仮定
+                const nonWinGames = d.games - d.wins;
+                const legacyRankSum = (d.wins * 1) + (nonWinGames * 2.5);
+
                 pStats[name] = {
-                    ranks: [], wins: d.wins, totalGames: d.games, lastPlaceCount: 0,
+                    rankSum: legacyRankSum, // 順位合計
+                    wins: d.wins, 
+                    totalGames: d.games, 
+                    lastPlaceCount: 0,
                     stats: { snipes: 0, breaks: 0, misses: d.misses, clutchHits: 0, clutchMisses: 0, totalPoints: d.points, throws: d.throws },
                     last10Stats: [], isLegacy: true
                 };
             }
 
-            // 2. 新しい履歴データを加算
+            // 2. 新しい履歴データ加算
             hist.forEach(m => {
                 m.ranking.forEach((name, idx) => {
                     if(!pStats[name]) pStats[name] = { 
-                        ranks:[], wins:0, totalGames:0, lastPlaceCount:0,
+                        rankSum: 0, wins:0, totalGames:0, lastPlaceCount:0,
                         stats:{snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0},
                         last10Stats: [], isLegacy: false
                     };
                     let ps = pStats[name];
-                    ps.ranks.push(idx+1);
+                    ps.rankSum += (idx + 1); // 実際の順位を加算
                     if(idx===0) ps.wins++;
                     if(idx===m.ranking.length-1) ps.lastPlaceCount++;
                     ps.totalGames++;
@@ -369,22 +379,19 @@
             // ソート
             let lb = Object.keys(pStats).map(n => {
                 const d = pStats[n];
-                const avg = d.ranks.length > 0 ? (d.ranks.reduce((a,b)=>a+b,0)/d.ranks.length) : 999;
+                const avg = d.rankSum / d.totalGames; // 合算した順位合計 ÷ 総試合数
                 const ppt = d.stats.throws > 0 ? (d.stats.totalPoints / d.stats.throws) : 0;
                 return { name:n, avgRank:avg, ppt:ppt, data:d };
             }).sort((a,b) => a.avgRank - b.avgRank);
 
             // リスト生成
-            let curRank=1;
             lb.forEach((p, i) => {
-                let displayRank = "-";
+                // 順位表示: 常に表示 (i+1)
+                let displayRank = i+1;
                 let rankClass = "text-gray-500";
+                if(i===0) rankClass="rank-1"; else if(i===1) rankClass="rank-2"; else if(i===2) rankClass="rank-3"; else rankClass="text-white";
                 
-                if(p.avgRank !== 999) {
-                    displayRank = (i+1);
-                    if(i===0) rankClass="rank-1"; else if(i===1) rankClass="rank-2"; else if(i===2) rankClass="rank-3"; else rankClass="text-white";
-                }
-                const avgRankText = p.avgRank === 999 ? "-" : p.avgRank.toFixed(2);
+                const avgRankText = p.avgRank.toFixed(2);
 
                 const row = document.createElement('div');
                 row.className = "bg-gray-800 rounded-xl mb-3 overflow-hidden border border-gray-700";
@@ -402,18 +409,19 @@
                                 ${genRadar(p.data)}
                             </div>
                             <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                                <h4 class="text-xs text-gray-400 mb-3 font-bold border-b border-gray-700 pb-2 tracking-widest">主要指標</h4>
+                                <h4 class="text-xs text-gray-400 mb-3 font-bold border-b border-gray-700 pb-2 tracking-widest">主要指標 (合算)</h4>
                                 ${genLast10Stats(p.data)}
                             </div>
                             <div class="chart-container">
-                                <h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">RANKING HISTORY</h4>
-                                ${genLine(p.data.ranks)}
+                                <h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">RANKING HISTORY (New Games Only)</h4>
+                                ${genLine(p.data.last10Stats.map(x=>x.rank))} 
                             </div>
                         </div>
                     </div>`;
                 con.appendChild(row);
             });
 
+            // 指標ガイド
             const glossary = document.createElement('div');
             glossary.className = "mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400";
             glossary.innerHTML = `
@@ -482,7 +490,8 @@
             const total = d.totalGames;
             
             const winRate = Math.round((wins/total)*100) + "%";
-            const avgRank = d.ranks.length > 0 ? (d.ranks.reduce((a,b)=>a+b,0)/d.ranks.length).toFixed(1) : "-";
+            // 平均順位は合算値を使用
+            const avgRank = (d.rankSum / d.totalGames).toFixed(2);
             const avgScore = s.throws > 0 ? (s.totalPoints/s.throws).toFixed(1) : "-";
             
             const snipeRate = (d.isLegacy && s.snipes===0) ? "-" : Math.round((s.snipes / (s.snipes+s.breaks||1))*100) + "%";
