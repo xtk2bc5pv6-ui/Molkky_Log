@@ -2,81 +2,107 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mölkky Online Sync</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mölkky Battle Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@900&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #111827; color: white; font-family: 'Roboto', sans-serif; touch-action: manipulation; }
-        .view-section { display: none; min-height: 100vh; flex-direction: column; }
-        .active-view { display: flex; }
+        /* 画面全体を固定し、スクロールを防ぐ */
+        body { 
+            background-color: #111827; 
+            color: white; 
+            font-family: 'Roboto', sans-serif; 
+            touch-action: manipulation;
+            height: 100dvh; /* スマホのアドレスバー考慮 */
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
         
-        /* ボタンデザイン */
+        .view-section { 
+            display: none; 
+            height: 100%; 
+            width: 100%; 
+            flex-direction: column; 
+        }
+        .active-view { display: flex; }
+
+        /* ボタンデザイン調整（少し小さくして画面に収める） */
         .score-btn {
-            width: 60px; height: 60px; font-size: 1.8rem; font-weight: 900;
+            width: 100%; aspect-ratio: 1; /* 正方形維持 */
+            max-width: 60px; max-height: 60px;
+            font-size: 1.6rem; font-weight: 900;
             display: flex; align-items: center; justify-content: center; padding: 0;
-            transition: all 0.2s; position: relative;
+            transition: all 0.1s; position: relative;
         }
         .score-btn:active { transform: scale(0.92); }
-        .btn-snipe { border-radius: 50%; background: linear-gradient(135deg, #e4c49f 0%, #c89f72 100%); color: #3e2723; border: 2px solid #5d4037; box-shadow: 0 4px 0 #8d6e63; }
-        .btn-break { border-radius: 12px; background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%); color: #ffffff; border: 1px solid #93c5fd; box-shadow: 0 4px 0 #1d4ed8; }
-        .btn-miss { background: linear-gradient(to bottom, #ef4444, #dc2626); box-shadow: 0 4px 0 #991b1b; }
+
+        .btn-snipe { border-radius: 50%; background: linear-gradient(135deg, #e4c49f 0%, #c89f72 100%); color: #3e2723; border: 2px solid #5d4037; box-shadow: 0 3px 0 #8d6e63; }
+        .btn-break { border-radius: 12px; background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%); color: #ffffff; border: 1px solid #93c5fd; box-shadow: 0 3px 0 #1d4ed8; }
+        .btn-miss { background: linear-gradient(to bottom, #ef4444, #dc2626); box-shadow: 0 3px 0 #991b1b; }
         .btn-miss:active { transform: translateY(2px); box-shadow: 0 1px 0 #991b1b; }
+
         .current-turn { background: rgba(251, 191, 36, 0.15); border-left: 4px solid #fbbf24; }
         .row-eliminated { opacity: 0.4; filter: grayscale(100%); }
         .row-cleared { background: rgba(16, 185, 129, 0.15); border-left: 4px solid #10b981; }
 
         /* モーダル */
         .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-center: center;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-center: center;
             z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(4px);
         }
         .modal-active { opacity: 1; pointer-events: auto; }
-        .modal-content { background: #1f2937; border-radius: 20px; padding: 2rem; width: 85%; max-width: 320px; text-align: center; border: 1px solid #374151; transform: scale(0.9); transition: transform 0.2s; }
+        .modal-content { background: #1f2937; border-radius: 20px; padding: 1.5rem; width: 90%; max-width: 320px; text-align: center; border: 1px solid #374151; transform: scale(0.95); transition: transform 0.2s; }
         .modal-active .modal-content { transform: scale(1); }
+
+        /* スクロールバー装飾 */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
     </style>
 </head>
-<body class="max-w-md mx-auto bg-gray-900 shadow-2xl overflow-hidden relative min-h-screen">
+<body class="max-w-md mx-auto relative shadow-2xl">
 
-    <button onclick="goHome()" class="fixed top-4 left-4 z-50 w-12 h-12 bg-gray-800/80 backdrop-blur rounded-full flex items-center justify-center shadow-lg border border-gray-600 hover:bg-gray-700 transition active:scale-95">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor">
+    <button onclick="goHome()" class="fixed top-3 left-3 z-50 w-10 h-10 bg-gray-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg border border-gray-600 hover:bg-gray-700 active:scale-95">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
             <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
         </svg>
     </button>
 
-    <div id="view-title" class="view-section active-view justify-center items-center p-6 text-center space-y-6 bg-gray-900">
-        <div class="mb-2">
-            <h1 class="text-5xl font-black text-yellow-500 mb-2 tracking-tighter drop-shadow-lg">Mölkky<br>Battle</h1>
-            <p class="text-gray-400 text-sm font-bold tracking-widest">ONLINE SYNC</p>
+    <div id="view-title" class="view-section active-view justify-center items-center p-6 bg-gray-900">
+        <div class="mb-8 text-center">
+            <h1 class="text-6xl font-black text-yellow-500 mb-2 tracking-tighter drop-shadow-lg leading-none">Mölkky<br>Battle</h1>
+            <p class="text-gray-400 text-sm font-bold tracking-widest uppercase">Offical Log App</p>
         </div>
 
-        <div class="w-full bg-gray-800 p-4 rounded-xl border border-gray-700">
-            <label class="text-xs text-gray-400 block mb-2 text-left">合言葉（ルームID）</label>
-            <input type="text" id="room-id" value="room1" class="w-full p-3 bg-gray-900 text-white rounded-lg border border-gray-600 font-bold text-center tracking-widest uppercase focus:border-yellow-500 outline-none" placeholder="例: ROOM1">
-            <p class="text-[10px] text-gray-500 mt-2 text-left">※同じ合言葉の人とデータが共有されます</p>
+        <div class="w-full space-y-4">
+            <button onclick="goToSetup()" class="w-full py-5 bg-yellow-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-yellow-500 transition transform hover:-translate-y-1 flex items-center justify-center">
+                <span class="mr-3">🔥</span> 新しい試合
+            </button>
+            <button onclick="goToRecords()" class="w-full py-5 bg-gray-800 text-gray-300 rounded-2xl font-bold text-xl shadow-lg hover:bg-gray-700 transition transform hover:-translate-y-1 flex items-center justify-center border border-gray-700">
+                <span class="mr-3">📊</span> 記録を見る
+            </button>
         </div>
-        
-        <button onclick="connectAndSetup()" class="w-full py-4 bg-yellow-600 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-yellow-500 transition transform hover:-translate-y-1 flex items-center justify-center">
-            <span class="mr-2">🔥</span> 試合を始める / 参加
-        </button>
-
-        <button onclick="connectAndRecords()" class="w-full py-4 bg-gray-800 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-gray-700 transition transform hover:-translate-y-1 flex items-center justify-center border border-gray-700">
-            <span class="mr-2">📊</span> 記録を見る
-        </button>
+        <div class="mt-8 text-xs text-gray-600">Ver 2.0 (Local Storage)</div>
     </div>
 
-    <div id="view-setup" class="view-section p-6 bg-gray-900 pt-20">
-        <h2 class="text-xl font-bold text-center mb-6 border-b border-gray-700 pb-2 text-gray-300">PLAYER ENTRY</h2>
-        <div class="flex-grow overflow-y-auto space-y-3 mb-4 pr-1" id="player-input-list">
+    <div id="view-setup" class="view-section p-4 bg-gray-900">
+        <div class="pt-12 pb-4 text-center">
+            <h2 class="text-xl font-bold text-white tracking-widest border-b-2 border-yellow-600 inline-block pb-1">PLAYER ENTRY</h2>
+        </div>
+        <div class="flex-grow overflow-y-auto space-y-3 px-2 custom-scrollbar" id="player-input-list">
             </div>
-        <button onclick="addPlayerInput()" class="w-full py-3 mb-4 bg-gray-800 text-gray-400 rounded-xl text-sm border-dashed border-2 border-gray-700 font-bold hover:bg-gray-750">+ メンバー追加</button>
-        <button onclick="initGame()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-blue-500 transition">GAME START</button>
+        <div class="mt-4 space-y-3">
+            <button onclick="addPlayerInput()" class="w-full py-3 bg-gray-800 text-gray-400 rounded-xl text-sm border-dashed border-2 border-gray-700 font-bold hover:bg-gray-750">+ メンバー追加</button>
+            <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-blue-500 transition">GAME START</button>
+        </div>
     </div>
 
-    <div id="view-game" class="view-section">
-        <div class="bg-gray-800 p-2 flex-grow overflow-y-auto custom-scrollbar pt-16">
+    <div id="view-game" class="view-section bg-gray-900">
+        <div class="flex-grow overflow-y-auto custom-scrollbar pt-14 px-1 pb-2 bg-gray-800">
             <table class="w-full text-left border-collapse">
-                <thead class="text-xs text-gray-500 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
+                <thead class="text-xs text-gray-500 sticky top-0 bg-gray-800 z-10 shadow-sm">
                     <tr>
                         <th class="pb-2 pl-3 pt-2">NAME</th>
                         <th class="pb-2 text-center pt-2">MISS</th>
@@ -86,61 +112,68 @@
                 <tbody id="scoreboard-body" class="text-sm font-bold"></tbody>
             </table>
         </div>
-        <div class="bg-gray-900 pb-6 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20 relative">
-            <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 mb-2">
-                <div>
-                    <span class="text-[10px] text-green-400 font-bold tracking-widest block mb-1">THROWING NEXT</span>
-                    <span id="current-player-name" class="text-xl font-black text-white tracking-tight truncate max-w-[150px] block">Wait...</span>
+
+        <div class="flex-none bg-gray-900 pb-6 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-20 relative px-3">
+            
+            <div class="flex justify-between items-center px-4 py-3 border-b border-gray-800 mb-2">
+                <div class="overflow-hidden">
+                    <span class="text-[10px] text-green-400 font-bold tracking-widest block">THROWING NEXT</span>
+                    <span id="current-player-name" class="text-xl font-black text-white tracking-tight truncate block">Player</span>
                 </div>
-                <div class="text-right">
-                    <span class="text-[10px] text-gray-500 font-bold tracking-widest block mb-1">TARGET</span>
+                <div class="text-right flex-none pl-4">
+                    <span class="text-[10px] text-gray-500 font-bold tracking-widest block">TARGET</span>
                     <span class="text-3xl font-black text-yellow-400 leading-none">50</span>
                 </div>
             </div>
-            <div class="flex justify-center mb-4 px-4">
+
+            <div class="flex justify-center mb-3">
                 <div class="bg-gray-800 p-1 rounded-xl flex w-full max-w-xs border border-gray-700">
-                    <button id="tab-snipe" onclick="switchMode('snipe')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-gray-400">🎯 1本 (Snipe)</button>
-                    <button id="tab-break" onclick="switchMode('break')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-gray-400">💥 複数 (Break)</button>
+                    <button id="tab-snipe" onclick="switchMode('snipe')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-gray-400">🎯 Snipe</button>
+                    <button id="tab-break" onclick="switchMode('break')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-gray-400">💥 Break</button>
                 </div>
             </div>
-            <div class="flex flex-col items-center gap-3 mb-5 px-2">
-                <div class="flex gap-4"> 
-                    <button class="score-btn" onclick="updateScore(7)">7</button>
-                    <button class="score-btn" onclick="updateScore(9)">9</button>
-                    <button class="score-btn" onclick="updateScore(8)">8</button>
+
+            <div class="grid grid-cols-4 gap-2 mb-3 max-w-sm mx-auto">
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(7)">7</button></div>
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(9)">9</button></div>
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(8)">8</button></div>
+                <div class="row-span-2 flex flex-col gap-2"> <button class="score-btn w-full h-full aspect-auto rounded-xl bg-gray-800 border border-gray-700 text-gray-400 text-sm" onclick="undoLast()">Undo</button>
                 </div>
-                <div class="flex gap-4"> 
-                    <button class="score-btn" onclick="updateScore(5)">5</button>
-                    <button class="score-btn" onclick="updateScore(11)">11</button>
-                    <button class="score-btn" onclick="updateScore(12)">12</button>
-                    <button class="score-btn" onclick="updateScore(6)">6</button>
-                </div>
-                <div class="flex gap-4"> 
-                    <button class="score-btn" onclick="updateScore(3)">3</button>
-                    <button class="score-btn" onclick="updateScore(10)">10</button>
-                    <button class="score-btn" onclick="updateScore(4)">4</button>
-                </div>
-                <div class="flex gap-4"> 
-                    <button class="score-btn" onclick="updateScore(1)">1</button>
-                    <button class="score-btn" onclick="updateScore(2)">2</button>
-                </div>
-            </div>
-            <div class="px-6">
-                <button onclick="updateScore(0)" class="w-full py-4 btn-miss text-white font-black rounded-2xl text-lg tracking-wider active:bg-red-700 transition">MISS ( 0 )</button>
+
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(5)">5</button></div>
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(11)">11</button></div>
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(12)">12</button></div>
+                
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(3)">3</button></div>
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(10)">10</button></div>
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(4)">4</button></div>
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(6)">6</button></div>
+
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(1)">1</button></div>
+                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(2)">2</button></div>
+                <div class="col-span-2"><button onclick="inputScore(0)" class="w-full h-full btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS</button></div>
             </div>
         </div>
     </div>
 
-    <div id="view-result" class="view-section justify-center items-center p-6 text-center bg-gray-900 pt-20">
-        <h2 class="text-4xl text-yellow-400 font-black mb-8 tracking-tighter drop-shadow-md">GAME SET!</h2>
-        <div class="w-full bg-gray-800 rounded-2xl p-6 mb-8 text-left space-y-3 shadow-lg border border-gray-700" id="result-list"></div>
-        <button onclick="goHome()" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition">タイトルへ戻る</button>
+    <div id="view-result" class="view-section justify-center items-center p-6 text-center bg-gray-900">
+        <h2 class="text-4xl text-yellow-400 font-black mb-6 tracking-tighter drop-shadow-md">GAME SET!</h2>
+        <div class="w-full bg-gray-800 rounded-2xl p-4 mb-6 text-left space-y-2 shadow-lg border border-gray-700 overflow-y-auto max-h-[50vh]" id="result-list"></div>
+        
+        <div class="w-full space-y-3">
+            <button onclick="restartGame()" class="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-500 transition shadow-lg flex items-center justify-center">
+                <span class="mr-2">🔄</span> もう一回 (Rematch)
+            </button>
+            <button onclick="goHome(true)" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition border border-gray-600">
+                タイトルへ戻る
+            </button>
+        </div>
     </div>
 
     <div id="view-records" class="view-section p-6 bg-gray-900 pt-20 overflow-y-auto">
         <div class="text-center mb-6">
-            <h2 class="text-2xl font-black text-white">ROOM STATS</h2>
-            <p class="text-xs text-gray-500" id="record-room-id-display">Room: ---</p>
+            <h2 class="text-2xl font-black text-white">STATS LOG</h2>
+            <p class="text-xs text-gray-500">Local Storage Data</p>
         </div>
         <div class="mb-6">
             <select id="record-player-select" onchange="analyzeRecords()" class="w-full p-3 bg-gray-800 text-white rounded-xl border border-gray-700 font-bold outline-none focus:border-yellow-500"></select>
@@ -148,21 +181,22 @@
         <div id="stats-container" class="space-y-6 hidden">
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700">
-                    <div class="text-gray-400 text-xs font-bold">総投擲数</div>
+                    <div class="text-gray-400 text-xs font-bold">Total Throws</div>
                     <div id="stat-total-throws" class="text-3xl font-black text-white mt-1">0</div>
                 </div>
                 <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700">
-                    <div class="text-gray-400 text-xs font-bold">50点回数</div>
+                    <div class="text-gray-400 text-xs font-bold">50pt Wins</div>
                     <div id="stat-wins" class="text-3xl font-black text-yellow-400 mt-1">0</div>
                 </div>
             </div>
             <div class="bg-gray-800 p-5 rounded-xl border border-gray-700">
-                <h3 class="text-sm font-bold text-gray-300 mb-4">🎯 スタイル比率</h3>
+                <h3 class="text-sm font-bold text-gray-300 mb-4">🎯 Style Ratio</h3>
                 <div class="flex justify-between text-xs font-bold mb-1"><span class="text-yellow-500" id="text-snipe">Snipe 0%</span><span class="text-blue-500" id="text-break">Break 0%</span></div>
                 <div class="w-full h-3 bg-gray-700 rounded-full flex overflow-hidden"><div id="bar-snipe" class="bg-yellow-500 h-full w-0"></div><div id="bar-break" class="bg-blue-500 h-full w-0"></div></div>
             </div>
         </div>
-        <div id="no-data-msg" class="text-center text-gray-500 py-10">データ読込中、または履歴なし</div>
+        <div id="no-data-msg" class="text-center text-gray-500 py-10">履歴なし</div>
+        <button onclick="clearAllData()" class="w-full mt-8 py-3 bg-red-900/20 text-red-500 border border-red-900 rounded-xl text-xs">履歴全消去</button>
     </div>
 
     <div id="modal-overlay" class="modal-overlay">
@@ -174,92 +208,284 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, arrayUnion, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        // ★あなたのAPIキーを設定済みです
-        const firebaseConfig = {
-            apiKey: "AIzaSyAkxCP38Q9t4ggTn3ippGqp1ood-yfkjls",
-            authDomain: "molkkystatus.firebaseapp.com",
-            projectId: "molkkystatus",
-            storageBucket: "molkkystatus.firebasestorage.app",
-            messagingSenderId: "666672171664",
-            appId: "1:666672171664:web:2b23bab0c3ff77943e6615",
-            measurementId: "G-Q1TBBHQ90Z"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // State
-        let roomId = "room1";
-        let gameState = null;
-        let unsubscribe = null;
+    <script>
+        // --- State Management ---
+        const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
+        let players = [];
+        let currentIndex = 0;
+        let clearOrder = [];
+        let eliminatedStack = [];
         let currentMode = 'snipe';
+        let gameLogs = []; // 今の試合のログ
 
-        window.goHome = () => {
-            if(unsubscribe) unsubscribe(); // 監視停止
+        // --- View Control ---
+        function showView(viewId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
-            document.getElementById('view-title').classList.add('active-view');
-        };
+            document.getElementById(viewId).classList.add('active-view');
+        }
 
-        window.connectAndSetup = async () => {
-            roomId = document.getElementById('room-id').value.toLowerCase();
-            if(!roomId) return alert("ルームIDを入力してください");
-            
-            // ルームのデータを監視開始
-            startListening();
-        };
+        // --- Game Setup ---
+        function goToSetup() {
+            // 前のプレイヤー設定があれば残すが、なければデフォルト
+            if(document.getElementById('player-input-list').children.length === 0) {
+                renderPlayerInputs(['Player 1', 'Player 2', 'Player 3']);
+            }
+            showView('view-setup');
+        }
 
-        window.connectAndRecords = async () => {
-            roomId = document.getElementById('room-id').value.toLowerCase();
-            if(!roomId) return alert("ルームIDを入力してください");
-            document.getElementById('record-room-id-display').innerText = `Room: ${roomId.toUpperCase()}`;
-            
-            showView('view-records');
-            loadRecords();
-        };
-
-        // --- リアルタイム同期 ---
-        function startListening() {
-            const docRef = doc(db, "rooms", roomId);
-            
-            unsubscribe = onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    gameState = docSnap.data();
-                    
-                    // 画面のルーティング
-                    if(gameState.status === 'setup') {
-                        showView('view-setup');
-                        renderSetupPlayers();
-                    } else if(gameState.status === 'playing') {
-                        showView('view-game');
-                        updateGameView();
-                    } else if(gameState.status === 'finished') {
-                        showView('view-result');
-                        renderResult();
-                    }
-                } else {
-                    // 部屋がない場合は作成（Setup画面へ）
-                    gameState = {
-                        status: 'setup',
-                        players: [{name: 'Player 1', score: 0, miss: 0, status: 'playing'}],
-                        logs: []
-                    };
-                    setDoc(docRef, gameState);
-                    showView('view-setup');
-                    renderSetupPlayers();
-                }
+        function renderPlayerInputs(names) {
+            const list = document.getElementById('player-input-list');
+            list.innerHTML = '';
+            names.forEach(name => {
+                const input = document.createElement('input');
+                input.value = name;
+                input.className = "player-name-input w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold focus:border-yellow-500 outline-none mb-2";
+                list.appendChild(input);
             });
         }
 
-        // --- View Helpers ---
-        function showView(id) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
-            document.getElementById(id).classList.add('active-view');
+        function addPlayerInput() {
+            const list = document.getElementById('player-input-list');
+            const count = list.children.length + 1;
+            const input = document.createElement('input');
+            input.value = "Player " + count;
+            input.className = "player-name-input w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold focus:border-yellow-500 outline-none mb-2";
+            list.appendChild(input);
         }
 
+        function startGame() {
+            const inputs = document.querySelectorAll('.player-name-input');
+            players = [];
+            clearOrder = [];
+            eliminatedStack = [];
+            gameLogs = [];
+
+            inputs.forEach(input => {
+                if(input.value.trim() !== "") {
+                    players.push({ name: input.value, score: 0, miss: 0, status: STATUS.PLAYING });
+                }
+            });
+
+            if(players.length < 1) return alert("プレイヤーがいません");
+
+            currentIndex = 0;
+            switchMode('snipe');
+            updateScoreboard();
+            showView('view-game');
+        }
+
+        // --- Game Logic ---
+        function switchMode(mode) {
+            currentMode = mode;
+            if(mode === 'snipe') {
+                document.getElementById('tab-snipe').className = "flex-1 py-2 rounded-lg text-xs font-bold bg-yellow-600 text-white shadow-md";
+                document.getElementById('tab-break').className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
+                document.querySelectorAll('.score-btn').forEach(b => { b.classList.remove('btn-break'); b.classList.add('btn-snipe'); });
+            } else {
+                document.getElementById('tab-snipe').className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
+                document.getElementById('tab-break').className = "flex-1 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-md";
+                document.querySelectorAll('.score-btn').forEach(b => { b.classList.remove('btn-snipe'); b.classList.add('btn-break'); });
+            }
+        }
+
+        function inputScore(points) {
+            const player = players[currentIndex];
+            const scoreBefore = player.score;
+
+            // ログ記録
+            gameLogs.push({
+                player: player.name,
+                score_before: scoreBefore,
+                points: points,
+                mode: points === 0 ? 'miss' : currentMode,
+                is_finish: (scoreBefore + points === 50)
+            });
+
+            // Undo用の仮実装として、ここではstateのdeep copyを持たない簡易版
+            // 本格的なUndoは履歴管理が必要だが、今回は「次へ」進む
+
+            if(points === 0) {
+                player.miss++;
+                if(player.miss >= 3) {
+                    player.status = STATUS.ELIMINATED;
+                    eliminatedStack.push(player);
+                    showModal('💀', '失格', `${player.name}さんが脱落しました`, [{text:'閉じる', onClick: checkGameEnd}]);
+                    return; // モーダル閉じたらcheckGameEnd
+                }
+            } else {
+                player.miss = 0;
+                let next = player.score + points;
+                if(next === 50) {
+                    player.score = 50;
+                    player.status = STATUS.CLEARED;
+                    clearOrder.push(player);
+                    showModal('🎉', 'CLEAR!', `${player.name}さん 50点達成！`, [{text:'次へ', primary:true, onClick: checkGameEnd}]);
+                    return;
+                } else if(next > 50) {
+                    player.score = 25;
+                    showModal('↩️', 'OVER', `${player.name}さん 25点に戻ります`, [{text:'OK', onClick: checkGameEnd}]);
+                    return;
+                } else {
+                    player.score = next;
+                }
+            }
+            checkGameEnd();
+        }
+
+        function checkGameEnd() {
+            updateScoreboard();
+            const active = players.filter(p => p.status === STATUS.PLAYING);
+            if(active.length <= 1) {
+                setTimeout(finishGame, 300);
+            } else {
+                proceedTurn();
+            }
+        }
+
+        function proceedTurn() {
+            let loop = 0;
+            do {
+                currentIndex = (currentIndex + 1) % players.length;
+                loop++;
+                if(loop > players.length) break;
+            } while (players[currentIndex].status !== STATUS.PLAYING);
+            updateScoreboard();
+            document.getElementById('current-player-name').innerText = players[currentIndex].name;
+        }
+
+        function undoLast() {
+            alert("Undo機能は未実装です（仕様複雑化防止のため）");
+        }
+
+        function updateScoreboard() {
+            const tbody = document.getElementById('scoreboard-body');
+            tbody.innerHTML = '';
+            players.forEach((p, i) => {
+                const tr = document.createElement('tr');
+                let rowClass = "border-b border-gray-700";
+                let icon = "";
+                let style = "text-gray-300";
+                if(p.status === STATUS.ELIMINATED) { rowClass = "row-eliminated"; icon = "💀"; }
+                else if(p.status === STATUS.CLEARED) { rowClass = "row-cleared"; icon = "👑"; style = "text-green-400"; }
+                else if(i === currentIndex) { rowClass = "current-turn border-b border-yellow-900"; style = "text-white"; }
+                
+                tr.className = rowClass;
+                let missHtml = "";
+                for(let m=0; m<3; m++) missHtml += (m<p.miss) ? "❌" : "●";
+                
+                tr.innerHTML = `
+                    <td class="py-3 pl-3 flex items-center ${style}"><span class="w-5 text-center mr-1">${icon}</span>${p.name}${i===currentIndex && p.status==='playing' ? '<span class="text-xs ml-2 text-yellow-400 animate-pulse">◀</span>':''}</td>
+                    <td class="text-center text-[10px] text-gray-500">${missHtml}</td>
+                    <td class="text-right pr-4 font-mono text-xl ${p.status==='cleared'?'text-green-400':'text-white'}">${p.status==='eliminated'?'-':p.score}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- Result & Save ---
+        function finishGame() {
+            // 順位確定
+            const survivors = players.filter(p => p.status === STATUS.PLAYING);
+            let ranking = [...clearOrder, ...survivors, ...eliminatedStack.reverse()];
+            
+            // データ保存
+            saveRecord(gameLogs);
+
+            // 結果表示
+            const list = document.getElementById('result-list');
+            list.innerHTML = '';
+            ranking.forEach((p, i) => {
+                let color = i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400";
+                list.innerHTML += `<div class="flex justify-between border-b border-gray-700 py-3"><div class="${color} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`;
+            });
+            showView('view-result');
+        }
+
+        function saveRecord(logs) {
+            let stored = JSON.parse(localStorage.getItem('molkky_logs') || '[]');
+            stored = stored.concat(logs);
+            localStorage.setItem('molkky_logs', JSON.stringify(stored));
+        }
+
+        // --- Restart Logic (Continuous Play) ---
+        function restartGame() {
+            // スコアと状態をリセットし、同じメンバーで開始
+            currentIndex = 0;
+            clearOrder = [];
+            eliminatedStack = [];
+            gameLogs = [];
+            
+            players.forEach(p => {
+                p.score = 0;
+                p.miss = 0;
+                p.status = STATUS.PLAYING;
+            });
+            
+            switchMode('snipe');
+            updateScoreboard();
+            showView('view-game');
+        }
+
+        // --- Navigation ---
+        function goHome(forceFinish = false) {
+            if(!forceFinish && document.getElementById('view-game').classList.contains('active-view')) {
+                showModal('🏠', 'ホームへ戻る', '試合を中断してタイトルに戻りますか？<br>データは保存されません。', [
+                    {text:'キャンセル'}, 
+                    {text:'戻る', primary:true, onClick:()=>{ showView('view-title'); }}
+                ]);
+            } else {
+                // タイトルに戻ったら、プレイヤー設定以外の進行データはクリア
+                showView('view-title');
+            }
+        }
+
+        // --- Stats View ---
+        function goToRecords() {
+            showView('view-records');
+            const stored = JSON.parse(localStorage.getItem('molkky_logs') || '[]');
+            if(stored.length === 0) {
+                document.getElementById('no-data-msg').style.display = 'block';
+                document.getElementById('stats-container').style.display = 'none';
+                return;
+            }
+            document.getElementById('no-data-msg').style.display = 'none';
+            document.getElementById('stats-container').style.display = 'block';
+
+            const names = [...new Set(stored.map(l => l.player))];
+            const select = document.getElementById('record-player-select');
+            select.innerHTML = '';
+            names.forEach(n => select.innerHTML += `<option value="${n}">${n}</option>`);
+            
+            analyzeRecords();
+        }
+
+        function analyzeRecords() {
+            const stored = JSON.parse(localStorage.getItem('molkky_logs') || '[]');
+            const target = document.getElementById('record-player-select').value;
+            const myLogs = stored.filter(l => l.player === target);
+
+            document.getElementById('stat-total-throws').innerText = myLogs.length;
+            document.getElementById('stat-wins').innerText = myLogs.filter(l => l.is_finish).length;
+            
+            const s = myLogs.filter(l => l.mode === 'snipe').length;
+            const b = myLogs.filter(l => l.mode === 'break').length;
+            const total = s + b || 1;
+            const sRate = Math.round(s/total*100);
+            
+            document.getElementById('text-snipe').innerText = `Snipe ${sRate}%`;
+            document.getElementById('text-break').innerText = `Break ${100-sRate}%`;
+            document.getElementById('bar-snipe').style.width = `${sRate}%`;
+            document.getElementById('bar-break').style.width = `${100-sRate}%`;
+        }
+
+        function clearAllData() {
+            if(confirm("全履歴を消去しますか？")) {
+                localStorage.removeItem('molkky_logs');
+                goToRecords();
+            }
+        }
+
+        // --- Modal Helper ---
         function showModal(icon, title, msg, actions) {
             document.getElementById('modal-icon').innerText = icon;
             document.getElementById('modal-title').innerText = title;
@@ -276,206 +502,6 @@
             document.getElementById('modal-overlay').classList.add('modal-active');
         }
         function closeModal() { document.getElementById('modal-overlay').classList.remove('modal-active'); }
-
-        window.switchMode = (mode) => {
-            currentMode = mode;
-            if(mode === 'snipe') {
-                document.getElementById('tab-snipe').className = "flex-1 py-2 rounded-lg text-xs font-bold bg-yellow-600 text-white shadow-md";
-                document.getElementById('tab-break').className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
-                document.querySelectorAll('.score-btn').forEach(b => { b.classList.remove('btn-break'); b.classList.add('btn-snipe'); });
-            } else {
-                document.getElementById('tab-snipe').className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
-                document.getElementById('tab-break').className = "flex-1 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-md";
-                document.querySelectorAll('.score-btn').forEach(b => { b.classList.remove('btn-snipe'); b.classList.add('btn-break'); });
-            }
-        };
-
-        // --- Setup Logic ---
-        function renderSetupPlayers() {
-            const list = document.getElementById('player-input-list');
-            list.innerHTML = '';
-            gameState.players.forEach((p, i) => {
-                const input = document.createElement('input');
-                input.value = p.name;
-                input.className = "w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold mb-2";
-                input.onchange = (e) => {
-                    gameState.players[i].name = e.target.value;
-                    updateDoc(doc(db, "rooms", roomId), { players: gameState.players });
-                };
-                list.appendChild(input);
-            });
-        }
-
-        window.addPlayerInput = () => {
-            gameState.players.push({name: `Player ${gameState.players.length+1}`, score: 0, miss: 0, status: 'playing'});
-            updateDoc(doc(db, "rooms", roomId), { players: gameState.players });
-        };
-
-        window.initGame = () => {
-            gameState.status = 'playing';
-            gameState.currentIndex = 0;
-            gameState.clearOrder = [];
-            gameState.eliminatedStack = [];
-            updateDoc(doc(db, "rooms", roomId), gameState);
-        };
-
-        // --- Game Logic ---
-        function updateGameView() {
-            // スコアボード更新
-            const tbody = document.getElementById('scoreboard-body');
-            tbody.innerHTML = '';
-            gameState.players.forEach((p, i) => {
-                const tr = document.createElement('tr');
-                let rowClass = "border-b border-gray-700";
-                let icon = "";
-                let style = "text-gray-300";
-                if(p.status === 'eliminated') { rowClass = "row-eliminated"; icon = "💀"; }
-                else if(p.status === 'cleared') { rowClass = "row-cleared"; icon = "👑"; style = "text-green-400"; }
-                else if(i === gameState.currentIndex) { rowClass = "current-turn border-b border-yellow-900"; style = "text-white"; }
-                
-                tr.className = rowClass;
-                let missHtml = "";
-                for(let m=0; m<3; m++) missHtml += (m<p.miss) ? "❌" : "●";
-                
-                tr.innerHTML = `
-                    <td class="py-3 pl-3 flex items-center ${style}"><span class="w-5 text-center mr-1">${icon}</span>${p.name}${i===gameState.currentIndex && p.status==='playing' ? '<span class="text-xs ml-2 text-yellow-400 animate-pulse">◀</span>':''}</td>
-                    <td class="text-center text-[10px] text-gray-500">${missHtml}</td>
-                    <td class="text-right pr-4 font-mono text-xl ${p.status==='cleared'?'text-green-400':'text-white'}">${p.status==='eliminated'?'-':p.score}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            // 現在のプレイヤー名
-            if(gameState.players[gameState.currentIndex]) {
-                document.getElementById('current-player-name').innerText = gameState.players[gameState.currentIndex].name;
-            }
-            switchMode('snipe'); // Reset to snipe mode visual
-        }
-
-        window.updateScore = async (points) => {
-            // 現在の状態をコピーして操作
-            const newState = JSON.parse(JSON.stringify(gameState));
-            const player = newState.players[newState.currentIndex];
-            const scoreBefore = player.score;
-
-            // ログ作成
-            const logEntry = {
-                player: player.name,
-                points: points,
-                score_before: scoreBefore,
-                mode: points === 0 ? 'miss' : currentMode,
-                is_miss: points === 0,
-                is_finish: (player.score + points === 50)
-            };
-            if(!newState.logs) newState.logs = [];
-            newState.logs.push(logEntry);
-
-            // スコアロジック
-            let message = null;
-            if(points === 0) {
-                player.miss++;
-                if(player.miss >= 3) {
-                    player.status = 'eliminated';
-                    if(!newState.eliminatedStack) newState.eliminatedStack = [];
-                    newState.eliminatedStack.push(player.name);
-                    message = {icon:'💀', title:'失格', text:`${player.name}さんが脱落しました`};
-                }
-            } else {
-                player.miss = 0;
-                let next = player.score + points;
-                if(next === 50) {
-                    player.score = 50;
-                    player.status = 'cleared';
-                    if(!newState.clearOrder) newState.clearOrder = [];
-                    newState.clearOrder.push(player.name);
-                    message = {icon:'🎉', title:'CLEAR!', text:`${player.name}さんが50点達成！`};
-                } else if(next > 50) {
-                    player.score = 25;
-                    message = {icon:'↩️', title:'OVER', text:`${player.name}さん25点に戻ります`};
-                } else {
-                    player.score = next;
-                }
-            }
-
-            // 終了判定
-            const active = newState.players.filter(p => p.status === 'playing');
-            if(active.length <= 1) {
-                // 終了
-                newState.status = 'finished';
-                // 順位生成ロジックは簡易的に
-                const survivors = active.map(p => p.name);
-                const elims = newState.eliminatedStack ? newState.eliminatedStack.reverse() : [];
-                const clears = newState.clearOrder || [];
-                // 結果保存用
-                newState.ranking = [...clears, ...survivors, ...elims];
-            } else {
-                // 次のターン
-                let loop = 0;
-                do {
-                    newState.currentIndex = (newState.currentIndex + 1) % newState.players.length;
-                    loop++;
-                } while (newState.players[newState.currentIndex].status !== 'playing' && loop < newState.players.length);
-            }
-
-            // DB更新（全員に同期される）
-            await updateDoc(doc(db, "rooms", roomId), newState);
-
-            if(message && newState.status !== 'finished') {
-                showModal(message.icon, message.title, message.text, [{text:'OK', primary:false}]);
-            }
-        };
-
-        // --- Result & Stats ---
-        function renderResult() {
-            const list = document.getElementById('result-list');
-            list.innerHTML = '';
-            const ranking = gameState.ranking || [];
-            ranking.forEach((name, i) => {
-                let rankColor = i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400";
-                list.innerHTML += `<div class="flex justify-between border-b border-gray-700 py-3"><div class="${rankColor} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${name}</div></div>`;
-            });
-        }
-
-        async function loadRecords() {
-            const docSnap = await getDoc(doc(db, "rooms", roomId));
-            if(!docSnap.exists()) {
-                document.getElementById('no-data-msg').innerText = "この部屋のデータはありません";
-                return;
-            }
-            const data = docSnap.data();
-            const logs = data.logs || [];
-            
-            if(logs.length === 0) {
-                document.getElementById('no-data-msg').style.display = 'block';
-                document.getElementById('stats-container').style.display = 'none';
-                return;
-            }
-            
-            document.getElementById('no-data-msg').style.display = 'none';
-            document.getElementById('stats-container').style.display = 'block';
-
-            const players = [...new Set(logs.map(l => l.player))];
-            const select = document.getElementById('record-player-select');
-            select.innerHTML = '';
-            players.forEach(p => select.innerHTML += `<option value="${p}">${p}</option>`);
-            
-            window.analyzeRecords = () => {
-                const target = select.value;
-                const myLogs = logs.filter(l => l.player === target);
-                document.getElementById('stat-total-throws').innerText = myLogs.length;
-                document.getElementById('stat-wins').innerText = myLogs.filter(l => l.is_finish).length;
-                
-                const s = myLogs.filter(l => l.mode === 'snipe').length;
-                const b = myLogs.filter(l => l.mode === 'break').length;
-                const total = s + b || 1;
-                const sRate = Math.round(s/total*100);
-                document.getElementById('text-snipe').innerText = `Snipe ${sRate}%`;
-                document.getElementById('text-break').innerText = `Break ${100-sRate}%`;
-                document.getElementById('bar-snipe').style.width = `${sRate}%`;
-                document.getElementById('bar-break').style.width = `${100-sRate}%`;
-            };
-            analyzeRecords();
-        }
     </script>
 </body>
 </html>
