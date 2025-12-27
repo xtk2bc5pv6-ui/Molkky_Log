@@ -3,62 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Battle Pro</title>
+    <title>Mölkky Stats Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@900&display=swap" rel="stylesheet">
     <style>
-        /* 画面全体を固定し、スクロールを防ぐ */
+        /* 基本設定 */
         body { 
-            background-color: #111827; 
-            color: white; 
+            background-color: #111827; color: white; 
             font-family: 'Roboto', sans-serif; 
             touch-action: manipulation;
-            height: 100dvh; /* スマホのアドレスバー考慮 */
-            width: 100vw;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            height: 100dvh; width: 100vw; overflow: hidden;
+            display: flex; flex-direction: column;
         }
-        
-        .view-section { 
-            display: none; 
-            height: 100%; 
-            width: 100%; 
-            flex-direction: column; 
-        }
+        .view-section { display: none; height: 100%; width: 100%; flex-direction: column; }
         .active-view { display: flex; }
 
-        /* ボタンデザイン調整（少し小さくして画面に収める） */
+        /* モルック配置ボタン */
+        .pin-row { display: flex; justify-content: center; gap: 8px; margin-bottom: 8px; }
         .score-btn {
-            width: 100%; aspect-ratio: 1; /* 正方形維持 */
-            max-width: 60px; max-height: 60px;
-            font-size: 1.6rem; font-weight: 900;
-            display: flex; align-items: center; justify-content: center; padding: 0;
-            transition: all 0.1s; position: relative;
+            width: 54px; height: 54px;
+            font-size: 1.5rem; font-weight: 900;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0; border-radius: 50%;
+            transition: transform 0.1s; position: relative;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
         }
-        .score-btn:active { transform: scale(0.92); }
+        .score-btn:active { transform: scale(0.92) translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3); }
 
-        .btn-snipe { border-radius: 50%; background: linear-gradient(135deg, #e4c49f 0%, #c89f72 100%); color: #3e2723; border: 2px solid #5d4037; box-shadow: 0 3px 0 #8d6e63; }
-        .btn-break { border-radius: 12px; background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%); color: #ffffff; border: 1px solid #93c5fd; box-shadow: 0 3px 0 #1d4ed8; }
+        /* Snipeモード（木） */
+        .mode-snipe .score-btn {
+            background: radial-gradient(circle at 30% 30%, #e4c49f, #c89f72);
+            color: #3e2723; border: 2px solid #5d4037;
+            border-radius: 50%; /* 丸 */
+        }
+        /* Breakモード（青・四角） */
+        .mode-break .score-btn {
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            color: white; border: 1px solid #93c5fd;
+            border-radius: 12px; /* 四角 */
+        }
+
         .btn-miss { background: linear-gradient(to bottom, #ef4444, #dc2626); box-shadow: 0 3px 0 #991b1b; }
         .btn-miss:active { transform: translateY(2px); box-shadow: 0 1px 0 #991b1b; }
 
-        .current-turn { background: rgba(251, 191, 36, 0.15); border-left: 4px solid #fbbf24; }
-        .row-eliminated { opacity: 0.4; filter: grayscale(100%); }
-        .row-cleared { background: rgba(16, 185, 129, 0.15); border-left: 4px solid #10b981; }
-
-        /* モーダル */
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-center: center;
-            z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(4px);
+        /* テーブル装飾 */
+        .rank-1 { color: #facc15; text-shadow: 0 0 10px rgba(250, 204, 21, 0.3); } /* Gold */
+        .rank-2 { color: #9ca3af; } /* Silver */
+        .rank-3 { color: #fb923c; } /* Bronze */
+        
+        /* グラフ用SVGコンテナ */
+        .chart-container { width: 100%; max-width: 300px; margin: 0 auto; }
+        
+        /* アコーディオン詳細 */
+        .player-detail { 
+            max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; 
+            background: #1f2937;
         }
-        .modal-active { opacity: 1; pointer-events: auto; }
-        .modal-content { background: #1f2937; border-radius: 20px; padding: 1.5rem; width: 90%; max-width: 320px; text-align: center; border: 1px solid #374151; transform: scale(0.95); transition: transform 0.2s; }
-        .modal-active .modal-content { transform: scale(1); }
+        .detail-open { max-height: 500px; } /* 十分な高さを確保 */
 
-        /* スクロールバー装飾 */
+        /* スクロールバー */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
     </style>
 </head>
@@ -71,9 +75,9 @@
     </button>
 
     <div id="view-title" class="view-section active-view justify-center items-center p-6 bg-gray-900">
-        <div class="mb-8 text-center">
-            <h1 class="text-6xl font-black text-yellow-500 mb-2 tracking-tighter drop-shadow-lg leading-none">Mölkky<br>Battle</h1>
-            <p class="text-gray-400 text-sm font-bold tracking-widest uppercase">Offical Log App</p>
+        <div class="mb-10 text-center">
+            <h1 class="text-6xl font-black text-yellow-500 mb-2 tracking-tighter drop-shadow-lg leading-none">Mölkky<br>Stats</h1>
+            <p class="text-gray-400 text-sm font-bold tracking-widest uppercase">Official Log App</p>
         </div>
 
         <div class="w-full space-y-4">
@@ -81,18 +85,18 @@
                 <span class="mr-3">🔥</span> 新しい試合
             </button>
             <button onclick="goToRecords()" class="w-full py-5 bg-gray-800 text-gray-300 rounded-2xl font-bold text-xl shadow-lg hover:bg-gray-700 transition transform hover:-translate-y-1 flex items-center justify-center border border-gray-700">
-                <span class="mr-3">📊</span> 記録を見る
+                <span class="mr-3">📊</span> 記録・分析
             </button>
         </div>
-        <div class="mt-8 text-xs text-gray-600">Ver 2.0 (Local Storage)</div>
+        
+        <button onclick="generateDemoData()" class="mt-8 text-xs text-gray-600 underline">デモデータ生成 (テスト用)</button>
     </div>
 
     <div id="view-setup" class="view-section p-4 bg-gray-900">
         <div class="pt-12 pb-4 text-center">
             <h2 class="text-xl font-bold text-white tracking-widest border-b-2 border-yellow-600 inline-block pb-1">PLAYER ENTRY</h2>
         </div>
-        <div class="flex-grow overflow-y-auto space-y-3 px-2 custom-scrollbar" id="player-input-list">
-            </div>
+        <div class="flex-grow overflow-y-auto space-y-3 px-2 custom-scrollbar" id="player-input-list"></div>
         <div class="mt-4 space-y-3">
             <button onclick="addPlayerInput()" class="w-full py-3 bg-gray-800 text-gray-400 rounded-xl text-sm border-dashed border-2 border-gray-700 font-bold hover:bg-gray-750">+ メンバー追加</button>
             <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-blue-500 transition">GAME START</button>
@@ -103,18 +107,13 @@
         <div class="flex-grow overflow-y-auto custom-scrollbar pt-14 px-1 pb-2 bg-gray-800">
             <table class="w-full text-left border-collapse">
                 <thead class="text-xs text-gray-500 sticky top-0 bg-gray-800 z-10 shadow-sm">
-                    <tr>
-                        <th class="pb-2 pl-3 pt-2">NAME</th>
-                        <th class="pb-2 text-center pt-2">MISS</th>
-                        <th class="pb-2 text-right pr-4 pt-2">SCORE</th>
-                    </tr>
+                    <tr><th class="pb-2 pl-3 pt-2">NAME</th><th class="pb-2 text-center pt-2">MISS</th><th class="pb-2 text-right pr-4 pt-2">SCORE</th></tr>
                 </thead>
                 <tbody id="scoreboard-body" class="text-sm font-bold"></tbody>
             </table>
         </div>
 
-        <div class="flex-none bg-gray-900 pb-6 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-20 relative px-3">
-            
+        <div class="flex-none bg-gray-900 pb-8 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-20 relative px-3">
             <div class="flex justify-between items-center px-4 py-3 border-b border-gray-800 mb-2">
                 <div class="overflow-hidden">
                     <span class="text-[10px] text-green-400 font-bold tracking-widest block">THROWING NEXT</span>
@@ -126,32 +125,38 @@
                 </div>
             </div>
 
-            <div class="flex justify-center mb-3">
+            <div class="flex justify-center mb-4">
                 <div class="bg-gray-800 p-1 rounded-xl flex w-full max-w-xs border border-gray-700">
                     <button id="tab-snipe" onclick="switchMode('snipe')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-gray-400">🎯 Snipe</button>
                     <button id="tab-break" onclick="switchMode('break')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-gray-400">💥 Break</button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-4 gap-2 mb-3 max-w-sm mx-auto">
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(7)">7</button></div>
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(9)">9</button></div>
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(8)">8</button></div>
-                <div class="row-span-2 flex flex-col gap-2"> <button class="score-btn w-full h-full aspect-auto rounded-xl bg-gray-800 border border-gray-700 text-gray-400 text-sm" onclick="undoLast()">Undo</button>
+            <div id="pin-container" class="mode-snipe flex flex-col items-center">
+                <div class="pin-row">
+                    <button class="score-btn" onclick="inputScore(7)">7</button>
+                    <button class="score-btn" onclick="inputScore(9)">9</button>
+                    <button class="score-btn" onclick="inputScore(8)">8</button>
                 </div>
-
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(5)">5</button></div>
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(11)">11</button></div>
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(12)">12</button></div>
-                
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(3)">3</button></div>
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(10)">10</button></div>
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(4)">4</button></div>
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(6)">6</button></div>
-
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(1)">1</button></div>
-                <div class="flex justify-center"><button class="score-btn" onclick="inputScore(2)">2</button></div>
-                <div class="col-span-2"><button onclick="inputScore(0)" class="w-full h-full btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS</button></div>
+                <div class="pin-row">
+                    <button class="score-btn" onclick="inputScore(5)">5</button>
+                    <button class="score-btn" onclick="inputScore(11)">11</button>
+                    <button class="score-btn" onclick="inputScore(12)">12</button>
+                    <button class="score-btn" onclick="inputScore(6)">6</button>
+                </div>
+                <div class="pin-row">
+                    <button class="score-btn" onclick="inputScore(3)">3</button>
+                    <button class="score-btn" onclick="inputScore(10)">10</button>
+                    <button class="score-btn" onclick="inputScore(4)">4</button>
+                </div>
+                <div class="pin-row">
+                    <button class="score-btn" onclick="inputScore(1)">1</button>
+                    <button class="score-btn" onclick="inputScore(2)">2</button>
+                </div>
+            </div>
+            
+            <div class="mt-2 px-6">
+                <button onclick="inputScore(0)" class="w-full py-3 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button>
             </div>
         </div>
     </div>
@@ -159,74 +164,54 @@
     <div id="view-result" class="view-section justify-center items-center p-6 text-center bg-gray-900">
         <h2 class="text-4xl text-yellow-400 font-black mb-6 tracking-tighter drop-shadow-md">GAME SET!</h2>
         <div class="w-full bg-gray-800 rounded-2xl p-4 mb-6 text-left space-y-2 shadow-lg border border-gray-700 overflow-y-auto max-h-[50vh]" id="result-list"></div>
-        
         <div class="w-full space-y-3">
-            <button onclick="restartGame()" class="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-500 transition shadow-lg flex items-center justify-center">
-                <span class="mr-2">🔄</span> もう一回 (Rematch)
-            </button>
-            <button onclick="goHome(true)" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition border border-gray-600">
-                タイトルへ戻る
-            </button>
+            <button onclick="restartGame()" class="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-500 transition shadow-lg flex items-center justify-center"><span class="mr-2">🔄</span> もう一回 (Rematch)</button>
+            <button onclick="goHome(true)" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition border border-gray-600">タイトルへ戻る</button>
         </div>
     </div>
 
-    <div id="view-records" class="view-section p-6 bg-gray-900 pt-20 overflow-y-auto">
-        <div class="text-center mb-6">
-            <h2 class="text-2xl font-black text-white">STATS LOG</h2>
-            <p class="text-xs text-gray-500">Local Storage Data</p>
-        </div>
-        <div class="mb-6">
-            <select id="record-player-select" onchange="analyzeRecords()" class="w-full p-3 bg-gray-800 text-white rounded-xl border border-gray-700 font-bold outline-none focus:border-yellow-500"></select>
-        </div>
-        <div id="stats-container" class="space-y-6 hidden">
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700">
-                    <div class="text-gray-400 text-xs font-bold">Total Throws</div>
-                    <div id="stat-total-throws" class="text-3xl font-black text-white mt-1">0</div>
-                </div>
-                <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700">
-                    <div class="text-gray-400 text-xs font-bold">50pt Wins</div>
-                    <div id="stat-wins" class="text-3xl font-black text-yellow-400 mt-1">0</div>
-                </div>
-            </div>
-            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700">
-                <h3 class="text-sm font-bold text-gray-300 mb-4">🎯 Style Ratio</h3>
-                <div class="flex justify-between text-xs font-bold mb-1"><span class="text-yellow-500" id="text-snipe">Snipe 0%</span><span class="text-blue-500" id="text-break">Break 0%</span></div>
-                <div class="w-full h-3 bg-gray-700 rounded-full flex overflow-hidden"><div id="bar-snipe" class="bg-yellow-500 h-full w-0"></div><div id="bar-break" class="bg-blue-500 h-full w-0"></div></div>
+    <div id="view-records" class="view-section bg-gray-900 pt-16 flex flex-col">
+        <div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10">
+            <h2 class="text-2xl font-black text-white text-center mb-1">RANKING</h2>
+            <p class="text-xs text-gray-500 text-center mb-4">平均順位 (Avg Rank) 順</p>
+            
+            <div class="flex text-xs text-gray-500 px-2 pb-1">
+                <div class="w-10 text-center">Rank</div>
+                <div class="flex-1">Name</div>
+                <div class="w-16 text-center">Avg Rank</div>
+                <div class="w-12 text-center">Games</div>
             </div>
         </div>
-        <div id="no-data-msg" class="text-center text-gray-500 py-10">履歴なし</div>
-        <button onclick="clearAllData()" class="w-full mt-8 py-3 bg-red-900/20 text-red-500 border border-red-900 rounded-xl text-xs">履歴全消去</button>
-    </div>
 
-    <div id="modal-overlay" class="modal-overlay">
-        <div class="modal-content">
-            <div id="modal-icon" class="text-5xl mb-4">⚠️</div>
-            <h3 id="modal-title" class="text-xl font-bold text-white mb-2"></h3>
-            <p id="modal-message" class="text-gray-400 text-sm mb-6 leading-relaxed"></p>
-            <div id="modal-actions" class="flex gap-3 justify-center"></div>
-        </div>
+        <div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container">
+            </div>
     </div>
 
     <script>
-        // --- State Management ---
+        // --- データ管理 ---
         const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
         let players = [];
         let currentIndex = 0;
         let clearOrder = [];
         let eliminatedStack = [];
         let currentMode = 'snipe';
-        let gameLogs = []; // 今の試合のログ
+        let matchLogs = []; // 各ゲームごとの結果ログ {date, ranking: [names...], details: {name: {stats}}}
 
-        // --- View Control ---
+        // --- ビュー制御 ---
         function showView(viewId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
             document.getElementById(viewId).classList.add('active-view');
         }
 
-        // --- Game Setup ---
+        function goHome(forceFinish = false) {
+            if(!forceFinish && document.getElementById('view-game').classList.contains('active-view')) {
+                if(!confirm("試合を中断してタイトルに戻りますか？\n保存されていないデータは消えます。")) return;
+            }
+            showView('view-title');
+        }
+
+        // --- セットアップ ---
         function goToSetup() {
-            // 前のプレイヤー設定があれば残すが、なければデフォルト
             if(document.getElementById('player-input-list').children.length === 0) {
                 renderPlayerInputs(['Player 1', 'Player 2', 'Player 3']);
             }
@@ -239,33 +224,34 @@
             names.forEach(name => {
                 const input = document.createElement('input');
                 input.value = name;
-                input.className = "player-name-input w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold focus:border-yellow-500 outline-none mb-2";
+                input.className = "w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold mb-2";
                 list.appendChild(input);
             });
         }
 
         function addPlayerInput() {
             const list = document.getElementById('player-input-list');
-            const count = list.children.length + 1;
             const input = document.createElement('input');
-            input.value = "Player " + count;
-            input.className = "player-name-input w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold focus:border-yellow-500 outline-none mb-2";
+            input.value = "Player " + (list.children.length + 1);
+            input.className = "w-full p-4 bg-gray-800 rounded-xl border border-gray-700 text-white font-bold mb-2";
             list.appendChild(input);
         }
 
         function startGame() {
-            const inputs = document.querySelectorAll('.player-name-input');
+            const inputs = document.querySelectorAll('#view-setup input');
             players = [];
-            clearOrder = [];
-            eliminatedStack = [];
-            gameLogs = [];
-
+            clearOrder = []; eliminatedStack = [];
+            
             inputs.forEach(input => {
                 if(input.value.trim() !== "") {
-                    players.push({ name: input.value, score: 0, miss: 0, status: STATUS.PLAYING });
+                    // 各試合のスタッツ用初期化
+                    players.push({ 
+                        name: input.value, 
+                        score: 0, miss: 0, status: STATUS.PLAYING,
+                        stats: { snipes: 0, breaks: 0, misses: 0, clutchHits: 0, clutchMisses: 0, throws: 0 } 
+                    });
                 }
             });
-
             if(players.length < 1) return alert("プレイヤーがいません");
 
             currentIndex = 0;
@@ -274,59 +260,58 @@
             showView('view-game');
         }
 
-        // --- Game Logic ---
+        // --- ゲームロジック ---
         function switchMode(mode) {
             currentMode = mode;
+            const container = document.getElementById('pin-container');
+            const btnSnipe = document.getElementById('tab-snipe');
+            const btnBreak = document.getElementById('tab-break');
+
             if(mode === 'snipe') {
-                document.getElementById('tab-snipe').className = "flex-1 py-2 rounded-lg text-xs font-bold bg-yellow-600 text-white shadow-md";
-                document.getElementById('tab-break').className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
-                document.querySelectorAll('.score-btn').forEach(b => { b.classList.remove('btn-break'); b.classList.add('btn-snipe'); });
+                container.classList.remove('mode-break'); container.classList.add('mode-snipe');
+                btnSnipe.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-yellow-600 text-white shadow-md";
+                btnBreak.className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
             } else {
-                document.getElementById('tab-snipe').className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
-                document.getElementById('tab-break').className = "flex-1 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-md";
-                document.querySelectorAll('.score-btn').forEach(b => { b.classList.remove('btn-snipe'); b.classList.add('btn-break'); });
+                container.classList.remove('mode-snipe'); container.classList.add('mode-break');
+                btnSnipe.className = "flex-1 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-700";
+                btnBreak.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-md";
             }
         }
 
         function inputScore(points) {
-            const player = players[currentIndex];
-            const scoreBefore = player.score;
+            const p = players[currentIndex];
+            const scoreBefore = p.score;
+            p.stats.throws++;
 
-            // ログ記録
-            gameLogs.push({
-                player: player.name,
-                score_before: scoreBefore,
-                points: points,
-                mode: points === 0 ? 'miss' : currentMode,
-                is_finish: (scoreBefore + points === 50)
-            });
-
-            // Undo用の仮実装として、ここではstateのdeep copyを持たない簡易版
-            // 本格的なUndoは履歴管理が必要だが、今回は「次へ」進む
-
+            // スタッツ記録
             if(points === 0) {
-                player.miss++;
-                if(player.miss >= 3) {
-                    player.status = STATUS.ELIMINATED;
-                    eliminatedStack.push(player);
-                    showModal('💀', '失格', `${player.name}さんが脱落しました`, [{text:'閉じる', onClick: checkGameEnd}]);
-                    return; // モーダル閉じたらcheckGameEnd
+                p.stats.misses++;
+                if(scoreBefore >= 37) p.stats.clutchMisses++;
+            } else {
+                if(currentMode === 'snipe') p.stats.snipes++;
+                else p.stats.breaks++;
+                if(scoreBefore >= 37) p.stats.clutchHits++;
+            }
+
+            // スコア計算
+            if(points === 0) {
+                p.miss++;
+                if(p.miss >= 3) {
+                    p.status = STATUS.ELIMINATED;
+                    eliminatedStack.push(p);
+                    alert(`${p.name} 失格！`);
                 }
             } else {
-                player.miss = 0;
-                let next = player.score + points;
+                p.miss = 0;
+                let next = p.score + points;
                 if(next === 50) {
-                    player.score = 50;
-                    player.status = STATUS.CLEARED;
-                    clearOrder.push(player);
-                    showModal('🎉', 'CLEAR!', `${player.name}さん 50点達成！`, [{text:'次へ', primary:true, onClick: checkGameEnd}]);
-                    return;
+                    p.score = 50; p.status = STATUS.CLEARED;
+                    clearOrder.push(p);
+                    alert(`${p.name} 50点クリア！`);
                 } else if(next > 50) {
-                    player.score = 25;
-                    showModal('↩️', 'OVER', `${player.name}さん 25点に戻ります`, [{text:'OK', onClick: checkGameEnd}]);
-                    return;
+                    p.score = 25; alert(`${p.name} 25点に戻ります`);
                 } else {
-                    player.score = next;
+                    p.score = next;
                 }
             }
             checkGameEnd();
@@ -335,11 +320,8 @@
         function checkGameEnd() {
             updateScoreboard();
             const active = players.filter(p => p.status === STATUS.PLAYING);
-            if(active.length <= 1) {
-                setTimeout(finishGame, 300);
-            } else {
-                proceedTurn();
-            }
+            if(active.length <= 1) setTimeout(finishGame, 300);
+            else proceedTurn();
         }
 
         function proceedTurn() {
@@ -353,155 +335,260 @@
             document.getElementById('current-player-name').innerText = players[currentIndex].name;
         }
 
-        function undoLast() {
-            alert("Undo機能は未実装です（仕様複雑化防止のため）");
-        }
-
         function updateScoreboard() {
             const tbody = document.getElementById('scoreboard-body');
             tbody.innerHTML = '';
             players.forEach((p, i) => {
                 const tr = document.createElement('tr');
-                let rowClass = "border-b border-gray-700";
+                let style = "text-gray-300 border-b border-gray-700";
                 let icon = "";
-                let style = "text-gray-300";
-                if(p.status === STATUS.ELIMINATED) { rowClass = "row-eliminated"; icon = "💀"; }
-                else if(p.status === STATUS.CLEARED) { rowClass = "row-cleared"; icon = "👑"; style = "text-green-400"; }
-                else if(i === currentIndex) { rowClass = "current-turn border-b border-yellow-900"; style = "text-white"; }
+                if(p.status === STATUS.ELIMINATED) { style="text-gray-600 bg-gray-800/50"; icon="💀"; }
+                else if(p.status === STATUS.CLEARED) { style="text-green-400 bg-green-900/20"; icon="👑"; }
+                else if(i === currentIndex) { style="text-white bg-yellow-900/20 border-l-4 border-yellow-500"; }
                 
-                tr.className = rowClass;
+                tr.className = style;
                 let missHtml = "";
                 for(let m=0; m<3; m++) missHtml += (m<p.miss) ? "❌" : "●";
                 
-                tr.innerHTML = `
-                    <td class="py-3 pl-3 flex items-center ${style}"><span class="w-5 text-center mr-1">${icon}</span>${p.name}${i===currentIndex && p.status==='playing' ? '<span class="text-xs ml-2 text-yellow-400 animate-pulse">◀</span>':''}</td>
+                tr.innerHTML = `<td class="py-3 pl-3 flex items-center"><span class="w-5 text-center mr-1">${icon}</span>${p.name}</td>
                     <td class="text-center text-[10px] text-gray-500">${missHtml}</td>
-                    <td class="text-right pr-4 font-mono text-xl ${p.status==='cleared'?'text-green-400':'text-white'}">${p.status==='eliminated'?'-':p.score}</td>
-                `;
+                    <td class="text-right pr-4 font-mono text-xl">${p.status===STATUS.ELIMINATED?'-':p.score}</td>`;
                 tbody.appendChild(tr);
             });
         }
 
-        // --- Result & Save ---
-        function finishGame() {
-            // 順位確定
-            const survivors = players.filter(p => p.status === STATUS.PLAYING);
-            let ranking = [...clearOrder, ...survivors, ...eliminatedStack.reverse()];
-            
-            // データ保存
-            saveRecord(gameLogs);
+        function restartGame() {
+            currentIndex = 0; clearOrder = []; eliminatedStack = [];
+            players.forEach(p => {
+                p.score = 0; p.miss = 0; p.status = STATUS.PLAYING;
+                // スタッツはリセットせず累計するか？今回は1試合ごとの記録なのでリセット
+                p.stats = { snipes: 0, breaks: 0, misses: 0, clutchHits: 0, clutchMisses: 0, throws: 0 };
+            });
+            switchMode('snipe'); updateScoreboard(); showView('view-game');
+        }
 
-            // 結果表示
+        // --- 結果保存と分析 ---
+        function finishGame() {
+            const survivors = players.filter(p => p.status === STATUS.PLAYING);
+            // 順位決定: クリア順 -> 生き残り -> 失格(逆順)
+            const finalRankingObjects = [...clearOrder, ...survivors, ...eliminatedStack.reverse()];
+            
+            // 履歴保存データ作成
+            const matchData = {
+                date: new Date().toISOString(),
+                ranking: finalRankingObjects.map(p => p.name), // 名前だけの配列（順位順）
+                details: {} // 各プレイヤーのその試合のスタッツ
+            };
+            
+            finalRankingObjects.forEach(p => {
+                matchData.details[p.name] = p.stats;
+            });
+
+            saveMatch(matchData);
+
+            // リザルト画面表示
             const list = document.getElementById('result-list');
             list.innerHTML = '';
-            ranking.forEach((p, i) => {
+            finalRankingObjects.forEach((p, i) => {
                 let color = i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400";
                 list.innerHTML += `<div class="flex justify-between border-b border-gray-700 py-3"><div class="${color} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`;
             });
             showView('view-result');
         }
 
-        function saveRecord(logs) {
-            let stored = JSON.parse(localStorage.getItem('molkky_logs') || '[]');
-            stored = stored.concat(logs);
-            localStorage.setItem('molkky_logs', JSON.stringify(stored));
+        function saveMatch(data) {
+            let history = JSON.parse(localStorage.getItem('molkky_match_history') || '[]');
+            history.push(data);
+            localStorage.setItem('molkky_match_history', JSON.stringify(history));
         }
 
-        // --- Restart Logic (Continuous Play) ---
-        function restartGame() {
-            // スコアと状態をリセットし、同じメンバーで開始
-            currentIndex = 0;
-            clearOrder = [];
-            eliminatedStack = [];
-            gameLogs = [];
-            
-            players.forEach(p => {
-                p.score = 0;
-                p.miss = 0;
-                p.status = STATUS.PLAYING;
-            });
-            
-            switchMode('snipe');
-            updateScoreboard();
-            showView('view-game');
-        }
-
-        // --- Navigation ---
-        function goHome(forceFinish = false) {
-            if(!forceFinish && document.getElementById('view-game').classList.contains('active-view')) {
-                showModal('🏠', 'ホームへ戻る', '試合を中断してタイトルに戻りますか？<br>データは保存されません。', [
-                    {text:'キャンセル'}, 
-                    {text:'戻る', primary:true, onClick:()=>{ showView('view-title'); }}
-                ]);
-            } else {
-                // タイトルに戻ったら、プレイヤー設定以外の進行データはクリア
-                showView('view-title');
-            }
-        }
-
-        // --- Stats View ---
+        // --- 記録・分析ロジック (最重要) ---
         function goToRecords() {
-            showView('view-records');
-            const stored = JSON.parse(localStorage.getItem('molkky_logs') || '[]');
-            if(stored.length === 0) {
-                document.getElementById('no-data-msg').style.display = 'block';
-                document.getElementById('stats-container').style.display = 'none';
+            const history = JSON.parse(localStorage.getItem('molkky_match_history') || '[]');
+            const container = document.getElementById('records-container');
+            container.innerHTML = '';
+
+            if(history.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 mt-10">データがありません</div>';
+                showView('view-records');
                 return;
             }
-            document.getElementById('no-data-msg').style.display = 'none';
-            document.getElementById('stats-container').style.display = 'block';
 
-            const names = [...new Set(stored.map(l => l.player))];
-            const select = document.getElementById('record-player-select');
-            select.innerHTML = '';
-            names.forEach(n => select.innerHTML += `<option value="${n}">${n}</option>`);
-            
-            analyzeRecords();
-        }
+            // 1. 各プレイヤーの順位を集計
+            let playerStats = {}; // { name: { ranks: [1, 2, 1...], totalStats: {...} } }
 
-        function analyzeRecords() {
-            const stored = JSON.parse(localStorage.getItem('molkky_logs') || '[]');
-            const target = document.getElementById('record-player-select').value;
-            const myLogs = stored.filter(l => l.player === target);
-
-            document.getElementById('stat-total-throws').innerText = myLogs.length;
-            document.getElementById('stat-wins').innerText = myLogs.filter(l => l.is_finish).length;
-            
-            const s = myLogs.filter(l => l.mode === 'snipe').length;
-            const b = myLogs.filter(l => l.mode === 'break').length;
-            const total = s + b || 1;
-            const sRate = Math.round(s/total*100);
-            
-            document.getElementById('text-snipe').innerText = `Snipe ${sRate}%`;
-            document.getElementById('text-break').innerText = `Break ${100-sRate}%`;
-            document.getElementById('bar-snipe').style.width = `${sRate}%`;
-            document.getElementById('bar-break').style.width = `${100-sRate}%`;
-        }
-
-        function clearAllData() {
-            if(confirm("全履歴を消去しますか？")) {
-                localStorage.removeItem('molkky_logs');
-                goToRecords();
-            }
-        }
-
-        // --- Modal Helper ---
-        function showModal(icon, title, msg, actions) {
-            document.getElementById('modal-icon').innerText = icon;
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-message').innerHTML = msg;
-            const container = document.getElementById('modal-actions');
-            container.innerHTML = '';
-            actions.forEach(a => {
-                const btn = document.createElement('button');
-                btn.className = `flex-1 py-3 px-4 rounded-lg font-bold text-sm ${a.primary?'bg-blue-600 text-white':'bg-gray-700 text-gray-300'}`;
-                btn.innerText = a.text;
-                btn.onclick = () => { closeModal(); if(a.onClick) a.onClick(); };
-                container.appendChild(btn);
+            history.forEach(match => {
+                match.ranking.forEach((name, idx) => {
+                    if(!playerStats[name]) playerStats[name] = { ranks: [], totalGames: 0, stats: { snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0 } };
+                    
+                    playerStats[name].ranks.push(idx + 1); // 1位, 2位...
+                    playerStats[name].totalGames++;
+                    
+                    // スタッツ加算 (もし詳細データがあれば)
+                    if(match.details && match.details[name]) {
+                        const s = match.details[name];
+                        const t = playerStats[name].stats;
+                        t.snipes += s.snipes || 0;
+                        t.breaks += s.breaks || 0;
+                        t.misses += s.misses || 0;
+                        t.clutchHits += s.clutchHits || 0;
+                        t.clutchMisses += s.clutchMisses || 0;
+                    }
+                });
             });
-            document.getElementById('modal-overlay').classList.add('modal-active');
+
+            // 2. 平均順位計算とソート
+            let leaderboard = Object.keys(playerStats).map(name => {
+                const ranks = playerStats[name].ranks;
+                const avg = ranks.reduce((a,b)=>a+b,0) / ranks.length;
+                return { name: name, avgRank: avg, data: playerStats[name], history: ranks };
+            });
+
+            // ソート: 平均順位が低い順
+            leaderboard.sort((a,b) => a.avgRank - b.avgRank);
+
+            // 3. 表示生成 (同率順位処理付き)
+            let currentRank = 1;
+            
+            leaderboard.forEach((p, i) => {
+                // 前の人と平均順位が同じなら同ランク、違えば i+1 位
+                if(i > 0 && p.avgRank > leaderboard[i-1].avgRank) {
+                    currentRank = i + 1;
+                }
+
+                // ランク色
+                let rankClass = currentRank===1?"rank-1":currentRank===2?"rank-2":currentRank===3?"rank-3":"text-white";
+                
+                // HTML生成
+                const row = document.createElement('div');
+                row.className = "bg-gray-800 rounded-xl mb-3 overflow-hidden border border-gray-700";
+                row.innerHTML = `
+                    <div class="flex items-center p-4 cursor-pointer" onclick="toggleDetail('detail-${i}')">
+                        <div class="w-10 text-center text-2xl font-black ${rankClass}">${currentRank}</div>
+                        <div class="flex-1 font-bold text-lg">${p.name}</div>
+                        <div class="w-16 text-center font-mono font-bold text-yellow-400">${p.avgRank.toFixed(2)}</div>
+                        <div class="w-12 text-center text-xs text-gray-500">${p.data.totalGames}戦</div>
+                    </div>
+                    <div id="detail-${i}" class="player-detail px-4 bg-gray-900 border-t border-gray-800">
+                        <div class="py-4 space-y-4">
+                            <div class="chart-container text-center">
+                                <h4 class="text-xs text-gray-400 mb-2">PERFORMANCE RADAR</h4>
+                                ${generateRadarChart(p.data)}
+                            </div>
+                            <div class="chart-container">
+                                <h4 class="text-xs text-gray-400 mb-2">RECENT RANKING (Last 10)</h4>
+                                ${generateLineChart(p.history)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            showView('view-records');
         }
-        function closeModal() { document.getElementById('modal-overlay').classList.remove('modal-active'); }
+
+        function toggleDetail(id) {
+            const el = document.getElementById(id);
+            // 他を閉じる動きを入れるとリッチだが、今回は単純トグル
+            el.classList.toggle('detail-open');
+        }
+
+        // --- チャート生成 (SVG) ---
+        function generateRadarChart(data) {
+            const s = data.stats;
+            const totalThrows = s.snipes + s.breaks + s.misses || 1;
+            const validThrows = s.snipes + s.breaks || 1;
+            
+            // パラメータ計算 (0-100)
+            const winRate = 50; // 仮（順位データから本当は計算すべき）
+            const accuracy = Math.round(((totalThrows - s.misses) / totalThrows) * 100); // 命中率
+            const snipeRate = Math.round((s.snipes / validThrows) * 100); // スナイプ率
+            const clutch = (s.clutchHits + s.clutchMisses) > 0 ? Math.round((s.clutchHits / (s.clutchHits + s.clutchMisses)) * 100) : 50; // 勝負強さ
+            const exp = Math.min(100, data.totalGames * 5); // 経験値 (20戦でMAX)
+
+            // チャート頂点 (Win, Acc, Snipe, Clutch, Exp)
+            const stats = [accuracy, snipeRate, clutch, exp, 70]; // 5つ目は適当なバランス値または勝率
+            const labels = ["Acc", "Snipe", "Clutch", "Exp", "Win"];
+            
+            // 五角形の座標計算
+            let points = "";
+            let axisLines = "";
+            let labelTags = "";
+            const cx = 100, cy = 100, r = 80;
+            
+            for(let i=0; i<5; i++) {
+                const angle = (Math.PI * 2 * i / 5) - (Math.PI / 2);
+                const val = stats[i]; // 0-100
+                const px = cx + (r * (val/100)) * Math.cos(angle);
+                const py = cy + (r * (val/100)) * Math.sin(angle);
+                points += `${px},${py} `;
+
+                // 軸線
+                const ax = cx + r * Math.cos(angle);
+                const ay = cy + r * Math.sin(angle);
+                axisLines += `<line x1="${cx}" y1="${cy}" x2="${ax}" y2="${ay}" stroke="#374151" stroke-width="1"/>`;
+                
+                // ラベル
+                const lx = cx + (r+15) * Math.cos(angle);
+                const ly = cy + (r+15) * Math.sin(angle);
+                labelTags += `<text x="${lx}" y="${ly}" font-size="10" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">${labels[i]}</text>`;
+            }
+
+            return `<svg viewBox="0 0 200 200" class="w-full">
+                <circle cx="100" cy="100" r="80" fill="none" stroke="#374151" stroke-width="1"/>
+                <circle cx="100" cy="100" r="40" fill="none" stroke="#374151" stroke-dasharray="2,2"/>
+                ${axisLines}
+                <polygon points="${points}" fill="rgba(250, 204, 21, 0.4)" stroke="#facc15" stroke-width="2"/>
+                ${labelTags}
+            </svg>`;
+        }
+
+        function generateLineChart(ranks) {
+            // 直近10戦
+            const recent = ranks.slice(-10);
+            if(recent.length < 2) return `<div class="text-xs text-gray-600">データ不足</div>`;
+            
+            const w = 280, h = 100;
+            const step = w / (recent.length - 1);
+            let points = "";
+            
+            recent.forEach((rank, i) => {
+                const x = i * step;
+                // 1位が上(y=10)、4位が下(y=90)
+                const y = 10 + (rank - 1) * 25; 
+                points += `${x},${y} `;
+            });
+
+            return `<svg viewBox="0 0 280 110" class="w-full h-24 bg-gray-800 rounded">
+                <polyline points="${points}" fill="none" stroke="#60a5fa" stroke-width="2"/>
+                ${recent.map((r,i) => `<circle cx="${i*step}" cy="${10+(r-1)*25}" r="3" fill="#60a5fa"/>`).join('')}
+            </svg>`;
+        }
+
+        // --- デモデータ生成 (テスト用) ---
+        function generateDemoData() {
+            if(!confirm("現在のデータを消去してデモデータを入れますか？")) return;
+            const dummyNames = ["佐藤", "鈴木", "田中", "高橋"];
+            let history = [];
+            
+            // 10試合分生成
+            for(let i=0; i<10; i++) {
+                // ランダムにシャッフルして順位決定
+                const shuffled = [...dummyNames].sort(() => 0.5 - Math.random());
+                history.push({
+                    date: new Date().toISOString(),
+                    ranking: shuffled,
+                    details: {
+                        [shuffled[0]]: { snipes: 5, breaks: 2, misses: 1, clutchHits: 2, clutchMisses: 0 },
+                        [shuffled[1]]: { snipes: 2, breaks: 5, misses: 0, clutchHits: 1, clutchMisses: 1 }
+                    }
+                });
+            }
+            localStorage.setItem('molkky_match_history', JSON.stringify(history));
+            alert("デモデータを生成しました。分析画面を確認してください。");
+            goToRecords();
+        }
     </script>
 </body>
 </html>
