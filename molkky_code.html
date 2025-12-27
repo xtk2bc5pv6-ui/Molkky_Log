@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
     <style>
-        /* 基本設定 */
+        /* --- 基本設定 --- */
         body { 
             background-color: #111827; color: white; 
             font-family: 'Roboto', 'Noto Sans JP', sans-serif; 
@@ -17,11 +17,11 @@
             user-select: none; -webkit-user-select: none;
         }
         
-        /* 画面切り替えの仕組み */
+        /* 画面切り替え: view-sectionは初期非表示、active-viewがつくと表示 */
         .view-section { display: none; height: 100%; width: 100%; flex-direction: column; }
         .active-view { display: flex; }
 
-        /* ボタンデザイン */
+        /* --- ボタンデザイン --- */
         .score-btn {
             width: 100%; aspect-ratio: 1; max-width: 54px; 
             font-size: 1.5rem; font-weight: 900;
@@ -32,12 +32,13 @@
         .score-btn:active { transform: scale(0.92) translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3); }
         .pin-row { display: flex; justify-content: center; gap: 8px; margin-bottom: 8px; }
 
+        /* モード別色 */
         .mode-snipe .score-btn { background: radial-gradient(circle at 30% 30%, #e4c49f, #c89f72); color: #3e2723; border: 2px solid #5d4037; border-radius: 50%; }
         .mode-break .score-btn { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; border: 1px solid #93c5fd; border-radius: 12px; }
         .btn-miss { background: linear-gradient(to bottom, #ef4444, #dc2626); box-shadow: 0 3px 0 #991b1b; }
         .btn-miss:active { transform: translateY(2px); box-shadow: 0 1px 0 #991b1b; }
 
-        /* 詳細アコーディオン */
+        /* --- その他パーツ --- */
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
 
@@ -58,7 +59,7 @@
 
     <button onclick="goHome()" class="fixed top-3 left-3 z-50 w-10 h-10 bg-gray-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg border border-gray-600 hover:bg-gray-700 active:scale-95">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/>
+            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
         </svg>
     </button>
 
@@ -77,6 +78,7 @@
         </div>
         <button onclick="generateDemoData()" class="mt-8 text-xs text-gray-600 underline">デモデータ生成 (テスト用)</button>
     </div>
+
     <div id="view-setup" class="view-section p-4 bg-gray-900">
         <div class="pt-12 pb-4 text-center"><h2 class="text-xl font-bold text-white tracking-widest border-b-2 border-yellow-600 inline-block pb-1">PLAYER ENTRY</h2></div>
         <div class="flex-grow overflow-y-auto space-y-3 px-2 custom-scrollbar" id="player-input-list"></div>
@@ -85,6 +87,7 @@
             <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-blue-500 transition">GAME START</button>
         </div>
     </div>
+
     <div id="view-game" class="view-section bg-gray-900">
         <div class="flex-grow overflow-y-auto custom-scrollbar pt-14 px-1 pb-2 bg-gray-800">
             <table class="w-full text-left border-collapse">
@@ -114,6 +117,7 @@
             <div class="mt-2 px-6"><button onclick="inputScore(0)" class="w-full py-3 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button></div>
         </div>
     </div>
+
     <div id="view-result" class="view-section justify-center items-center p-6 text-center bg-gray-900">
         <h2 class="text-4xl text-yellow-400 font-black mb-6 tracking-tighter drop-shadow-md">GAME SET!</h2>
         <div class="w-full bg-gray-800 rounded-2xl p-4 mb-6 text-left space-y-2 shadow-lg border border-gray-700 overflow-y-auto max-h-[50vh]" id="result-list"></div>
@@ -122,6 +126,7 @@
             <button onclick="goHome(true)" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition border border-gray-600">タイトルへ戻る</button>
         </div>
     </div>
+
     <div id="view-records" class="view-section bg-gray-900 pt-16 flex flex-col">
         <div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10">
             <h2 class="text-2xl font-black text-white text-center mb-1">RECORDS</h2>
@@ -130,19 +135,19 @@
             <div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700">
                 <div class="w-10 text-center">
                     <span class="block text-xs font-bold text-white leading-none">順位</span>
-                    <span class="block text-[9px] font-normal leading-none mt-1">RANK</span>
+                    <span class="block text-[8px] font-normal leading-none mt-1">RANK</span>
                 </div>
                 <div class="flex-1 pl-2">
                     <span class="block text-xs font-bold text-white leading-none">名前</span>
-                    <span class="block text-[9px] font-normal leading-none mt-1">NAME</span>
+                    <span class="block text-[8px] font-normal leading-none mt-1">NAME</span>
                 </div>
                 <div class="w-16 text-center">
                     <span class="block text-xs font-bold text-white leading-none">平均順位</span>
-                    <span class="block text-[9px] font-normal leading-none mt-1">AVG RANK</span>
+                    <span class="block text-[8px] font-normal leading-none mt-1">AVG RANK</span>
                 </div>
                 <div class="w-12 text-center">
                     <span class="block text-xs font-bold text-white leading-none">平均点</span>
-                    <span class="block text-[9px] font-normal leading-none mt-1">AVG</span>
+                    <span class="block text-[8px] font-normal leading-none mt-1">AVG</span>
                 </div>
             </div>
         </div>
@@ -150,6 +155,7 @@
         <div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container">
             </div>
     </div>
+
     <script>
         const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
         let players = [], currentIndex = 0, clearOrder = [], eliminatedStack = [], currentMode = 'snipe';
@@ -316,6 +322,7 @@
                 });
             });
 
+            // ソート
             let lb = Object.keys(pStats).map(n => {
                 const d = pStats[n];
                 const avg = d.ranks.reduce((a,b)=>a+b,0)/d.ranks.length;
@@ -379,7 +386,7 @@
             showView('view-records');
         }
 
-        // --- Charts ---
+        // --- Chart Generation ---
         function genRadar(d) {
             const s = d.stats;
             const tThrows = s.snipes+s.breaks+s.misses||1;
@@ -409,14 +416,23 @@
                 const v = params[i].v;
                 pts += `${cx+(r*(v/100))*Math.cos(a)},${cy+(r*(v/100))*Math.sin(a)} `;
                 lines += `<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#374151"/>`;
-                const lx = cx+(r+35)*Math.cos(a), ly = cy+(r+35)*Math.sin(a);
+                
+                const lx = cx+(r+35)*Math.cos(a);
+                const ly = cy+(r+35)*Math.sin(a);
+                
                 lbls += `<g class="chart-label-group" oncontextmenu="return false;">
                     <text x="${lx}" y="${ly-5}" font-size="12" font-weight="900" fill="#fff" text-anchor="middle" font-family="'Noto Sans JP', sans-serif" class="chart-text">${params[i].l}</text>
                     <text x="${lx}" y="${ly+8}" font-size="8" fill="#6b7280" text-anchor="middle" font-family="'Roboto', sans-serif" class="chart-text">${params[i].e}</text>
                     <text x="${lx}" y="${ly+4}" text-anchor="middle" class="chart-value-text">${params[i].v}%</text>
                 </g>`;
             }
-            return `<svg viewBox="0 0 300 300" class="w-full"><circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/><circle cx="150" cy="150" r="45" fill="none" stroke="#374151" stroke-dasharray="2,2"/>${lines}<polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>${lbls}</svg>`;
+            return `<svg viewBox="0 0 300 300" class="w-full">
+                <circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/>
+                <circle cx="150" cy="150" r="45" fill="none" stroke="#374151" stroke-dasharray="2,2"/>
+                ${lines}
+                <polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>
+                ${lbls}
+            </svg>`;
         }
 
         function genLast10Stats(arr) {
@@ -426,6 +442,7 @@
             const avgRank = (last10.reduce((a,b)=>a+b.rank,0)/last10.length).toFixed(1);
             const avgScore = (last10.reduce((a,b)=>a+b.scoreAvg,0)/last10.length).toFixed(1);
             const finishRate = Math.round((last10.filter(x=>x.finished).length / last10.length)*100); 
+            
             return `
                 <div class="grid grid-cols-3 gap-2 text-center">
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-yellow-400">${Math.round(wins/last10.length*100)}%</span><span class="stat-label">勝率</span></div>
@@ -441,7 +458,10 @@
             if(r.length<2) return '<div class="text-xs text-gray-600 text-center py-4">データ不足</div>';
             const w=280, h=80, step=w/(r.length-1);
             let p=""; r.forEach((rk,i)=>{ p+=`${i*step},${10+(rk-1)*20} `; });
-            return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700"><polyline points="${p}" fill="none" stroke="#60a5fa" stroke-width="2"/>${r.map((rk,i)=>`<circle cx="${i*step}" cy="${10+(rk-1)*20}" r="3" fill="#60a5fa"/>`).join('')}</svg>`;
+            return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700">
+                <polyline points="${p}" fill="none" stroke="#60a5fa" stroke-width="2"/>
+                ${r.map((rk,i)=>`<circle cx="${i*step}" cy="${10+(rk-1)*20}" r="3" fill="#60a5fa"/>`).join('')}
+            </svg>`;
         }
 
         function generateDemoData() {
