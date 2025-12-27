@@ -3,223 +3,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mölkky Simple Log</title>
+    <title>Molkky Repro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 全体設定 */
-        body { 
-            background-color: #1a1a1a; 
-            color: #fff; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            touch-action: manipulation; /* スマホでの操作遅延を防ぐ */
-        }
+        body { background-color: #1f2937; color: white; font-family: sans-serif; touch-action: manipulation; }
+        
+        /* 画面の表示・非表示切り替え用クラス */
+        .view-section { display: none; height: 100vh; flex-direction: column; }
+        .active-view { display: flex; }
 
-        /* モルックのスキットル風ボタン */
+        /* スキットルボタン（木の質感） */
         .pin-btn {
-            width: 60px;
-            height: 60px;
+            width: 58px; height: 58px;
             border-radius: 50%;
-            background-color: #d4a373; /* 木の色 */
-            color: #3e2723; /* 文字色 */
-            font-size: 1.5rem;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-center: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 -4px 0 rgba(0,0,0,0.2);
-            transition: transform 0.1s, background-color 0.1s;
+            background-color: #d4a373; color: #3e2723;
+            font-size: 1.4rem; font-weight: bold;
+            display: flex; align-items: center; justify-center: center;
+            box-shadow: 0 4px 0 #8d6e63;
+            transition: all 0.1s;
         }
-        .pin-btn:active {
-            transform: scale(0.95);
-            background-color: #bc8a5f;
-        }
+        .pin-btn:active { transform: translateY(4px); box-shadow: none; }
 
-        /* ミスボタン */
-        .miss-btn {
-            width: 100%;
-            padding: 15px;
-            background-color: #ef4444;
-            color: white;
-            font-weight: bold;
-            border-radius: 12px;
-            box-shadow: 0 4px 0 #991b1b;
-        }
-        .miss-btn:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
+        /* 現在のプレイヤーの強調表示 */
+        .current-turn { border: 2px solid #fbbf24; background-color: #374151; }
     </style>
 </head>
-<body class="h-screen flex flex-col max-w-md mx-auto relative">
+<body class="max-w-md mx-auto bg-gray-900 shadow-2xl overflow-hidden">
 
-    <div class="bg-gray-800 p-4 pb-6 rounded-b-3xl shadow-lg z-10">
-        <div class="flex justify-between items-center mb-2">
-            <div class="flex flex-col">
-                <span class="text-xs text-gray-400">PLAYER</span>
-                <input type="text" value="Player 1" class="bg-transparent text-xl font-bold text-white w-32 focus:outline-none focus:border-b border-gray-500">
-            </div>
-            
-            <div class="flex flex-col items-end">
-                <span class="text-xs text-gray-400">MISS</span>
-                <div id="miss-display" class="flex space-x-1 text-2xl h-8">
-                    <span class="text-gray-700">●</span>
-                    <span class="text-gray-700">●</span>
-                    <span class="text-gray-700">●</span>
+    <div id="view-title" class="view-section active-view justify-center items-center p-6 text-center space-y-8">
+        <div>
+            <h1 class="text-5xl font-bold text-green-500 mb-2">Mölkky<br>Note</h1>
+            <p class="text-gray-400 text-sm">Simple Score Logger</p>
+        </div>
+        <button onclick="goToSetup()" class="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-green-500 transition">
+            新しい試合
+        </button>
+        <div class="text-xs text-gray-600 mt-8">Ver 1.0 (GitHub Pages)</div>
+    </div>
+
+    <div id="view-setup" class="view-section p-6">
+        <h2 class="text-xl font-bold text-center mb-6 border-b border-gray-700 pb-2">プレイヤー選択</h2>
+        
+        <div class="flex-grow overflow-y-auto space-y-3 mb-4" id="player-input-list">
+            <input type="text" value="Player 1" class="player-name-input w-full p-3 bg-gray-800 rounded border border-gray-600 text-white">
+            <input type="text" value="Player 2" class="player-name-input w-full p-3 bg-gray-800 rounded border border-gray-600 text-white">
+        </div>
+
+        <button onclick="addPlayerInput()" class="w-full py-2 mb-4 bg-gray-700 text-gray-300 rounded-lg text-sm border-dashed border-2 border-gray-600">+ メンバーを追加</button>
+
+        <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-lg">
+            試合開始
+        </button>
+        <button onclick="showView('view-title')" class="mt-4 text-gray-500 text-sm text-center w-full">戻る</button>
+    </div>
+
+    <div id="view-game" class="view-section">
+        <div class="bg-gray-800 p-2 flex-grow overflow-y-auto">
+            <table class="w-full text-left">
+                <thead class="text-xs text-gray-500 border-b border-gray-700">
+                    <tr>
+                        <th class="pb-1 pl-2">NAME</th>
+                        <th class="pb-1 text-center">MISS</th>
+                        <th class="pb-1 text-right pr-4">SCORE</th>
+                    </tr>
+                </thead>
+                <tbody id="scoreboard-body" class="text-sm">
+                    </tbody>
+            </table>
+        </div>
+
+        <div class="bg-gray-900 p-4 pb-8 rounded-t-3xl shadow-[0_-5px_15px_rgba(0,0,0,0.5)] z-10">
+            <div class="flex justify-between items-center mb-4 px-2">
+                <div>
+                    <span class="text-xs text-green-400 block">THROWING NEXT</span>
+                    <span id="current-player-name" class="text-xl font-bold text-white">Player Name</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-gray-400 block">TARGET</span>
+                    <span class="text-2xl font-mono text-yellow-400">50</span>
                 </div>
             </div>
-        </div>
 
-        <div class="text-center mt-2">
-            <div class="text-sm text-gray-400 mb-1">CURRENT SCORE</div>
-            <div id="score-display" class="text-7xl font-mono font-bold text-yellow-400 leading-none">0</div>
-            <div class="text-sm text-gray-500 mt-2">Target: 50</div>
+            <div class="flex flex-col items-center gap-3 mb-4">
+                <div class="flex gap-4"> <button class="pin-btn" onclick="inputScore(7)">7</button>
+                    <button class="pin-btn" onclick="inputScore(9)">9</button>
+                    <button class="pin-btn" onclick="inputScore(8)">8</button>
+                </div>
+                <div class="flex gap-4"> <button class="pin-btn" onclick="inputScore(5)">5</button>
+                    <button class="pin-btn" onclick="inputScore(11)">11</button>
+                    <button class="pin-btn" onclick="inputScore(12)">12</button>
+                    <button class="pin-btn" onclick="inputScore(6)">6</button>
+                </div>
+                <div class="flex gap-4"> <button class="pin-btn" onclick="inputScore(3)">3</button>
+                    <button class="pin-btn" onclick="inputScore(10)">10</button>
+                    <button class="pin-btn" onclick="inputScore(4)">4</button>
+                </div>
+                <div class="flex gap-4"> <button class="pin-btn" onclick="inputScore(1)">1</button>
+                    <button class="pin-btn" onclick="inputScore(2)">2</button>
+                </div>
+            </div>
+
+            <button onclick="inputScore(0)" class="w-full py-3 bg-red-900/80 text-red-200 font-bold rounded-xl border border-red-800 active:bg-red-800">
+                MISS (0点)
+            </button>
         </div>
     </div>
 
-    <div class="flex-grow overflow-y-auto p-4 space-y-2" id="log-area">
-        <div class="text-center text-xs text-gray-600 mt-4">-- 試合開始 --</div>
-    </div>
-
-    <div class="bg-gray-900 p-4 pb-8 rounded-t-3xl shadow-inner">
+    <div id="view-result" class="view-section justify-center items-center p-6 text-center">
+        <div class="text-6xl mb-4">👑</div>
+        <h2 class="text-2xl text-yellow-400 font-bold mb-2">WINNER!</h2>
+        <div id="winner-name" class="text-4xl font-bold text-white mb-8">Player Name</div>
         
-        <div class="flex justify-center mb-6 space-x-4 text-sm">
-            <label class="flex items-center space-x-2">
-                <input type="radio" name="mode" value="break" checked class="accent-blue-500">
-                <span class="text-gray-400">複数(本数)</span>
-            </label>
-            <label class="flex items-center space-x-2">
-                <input type="radio" name="mode" value="snipe" class="accent-green-500">
-                <span class="text-gray-400">1本(番号)</span>
-            </label>
-        </div>
-
-        <div class="flex flex-col items-center gap-3 mb-6">
-            <div class="flex gap-4">
-                <button class="pin-btn" onclick="addScore(7)">7</button>
-                <button class="pin-btn" onclick="addScore(9)">9</button>
-                <button class="pin-btn" onclick="addScore(8)">8</button>
-            </div>
-            <div class="flex gap-4">
-                <button class="pin-btn" onclick="addScore(5)">5</button>
-                <button class="pin-btn" onclick="addScore(11)">11</button>
-                <button class="pin-btn" onclick="addScore(12)">12</button>
-                <button class="pin-btn" onclick="addScore(6)">6</button>
-            </div>
-            <div class="flex gap-4">
-                <button class="pin-btn" onclick="addScore(3)">3</button>
-                <button class="pin-btn" onclick="addScore(10)">10</button>
-                <button class="pin-btn" onclick="addScore(4)">4</button>
-            </div>
-            <div class="flex gap-4">
-                <button class="pin-btn" onclick="addScore(1)">1</button>
-                <button class="pin-btn" onclick="addScore(2)">2</button>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-4 gap-4">
-            <button onclick="resetGame()" class="col-span-1 bg-gray-700 text-gray-400 rounded-xl text-xs font-bold">RESET</button>
-            <button onclick="addScore(0)" class="col-span-3 miss-btn text-xl">MISS (0)</button>
-        </div>
+        <button onclick="showView('view-title')" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold">
+            タイトルへ戻る
+        </button>
     </div>
 
     <script>
-        // ゲームの状態変数
-        let currentScore = 0;
-        let missCount = 0;
-        let history = []; // 「戻る」機能用（今回はシンプル化のためログ表示のみ）
+        // データ管理
+        let players = []; // { name: "A", score: 0, miss: 0 }
+        let currentIndex = 0; // 今誰の番か
 
-        const scoreEl = document.getElementById('score-display');
-        const missEl = document.getElementById('miss-display');
-        const logArea = document.getElementById('log-area');
+        // 画面切り替え関数
+        function showView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+            document.getElementById(viewId).classList.add('active-view');
+        }
 
-        // 点数追加処理
-        function addScore(points) {
-            const isSnipe = document.querySelector('input[name="mode"]:checked').value === 'snipe';
-            const previousScore = currentScore;
+        // --- セットアップ画面の処理 ---
+        function goToSetup() {
+            showView('view-setup');
+        }
 
-            // 1. ミス判定と処理
-            if (points === 0) {
-                missCount++;
-                logAction(previousScore, 0, "MISS");
-                updateMissDisplay();
+        function addPlayerInput() {
+            const list = document.getElementById('player-input-list');
+            const count = list.children.length + 1;
+            const input = document.createElement('input');
+            input.type = "text";
+            input.value = "Player " + count;
+            input.className = "player-name-input w-full p-3 bg-gray-800 rounded border border-gray-600 text-white mt-2";
+            list.appendChild(input);
+        }
+
+        // --- 試合開始処理 ---
+        function startGame() {
+            // 入力された名前を取得
+            const inputs = document.querySelectorAll('.player-name-input');
+            players = [];
+            inputs.forEach(input => {
+                if(input.value.trim() !== ""){
+                    players.push({ name: input.value, score: 0, miss: 0, history: [] });
+                }
+            });
+
+            if(players.length === 0) { alert("プレイヤーがいません"); return; }
+
+            currentIndex = 0;
+            updateScoreboard();
+            showView('view-game');
+        }
+
+        // --- スコア入力処理 ---
+        function inputScore(points) {
+            const player = players[currentIndex];
+            const prevScore = player.score;
+
+            // ミス処理
+            if(points === 0) {
+                player.miss += 1;
+                player.history.push(0);
+                if(player.miss >= 3) {
+                    alert(player.name + "さんは3回連続ミスで失格です...");
+                    player.score = 0; // 失格扱いの処理（今回は0点にして続行させる簡易版）
+                    // 本来ならゲームから除外する処理などが入る
+                    player.miss = 0; // リセット
+                }
+            } else {
+                player.miss = 0; // 点数が入ればミスリセット
+                let nextScore = player.score + points;
                 
-                if (missCount >= 3) {
-                    setTimeout(() => alert("失格！ (3回連続ミス)"), 100);
-                }
-                return; // 点数計算せず終了
-            } else {
-                // 得点した場合はミスカウントをリセット
-                missCount = 0;
-                updateMissDisplay();
-            }
-
-            // 2. 点数加算ルール
-            let nextScore = currentScore + points;
-
-            if (nextScore === 50) {
-                currentScore = 50;
-                scoreEl.innerText = 50;
-                scoreEl.classList.add("text-green-400"); // 色を変える
-                logAction(previousScore, points, "FINISH!");
-                setTimeout(() => alert("🎉 50点ピッタリ！勝利！"), 100);
-                return;
-            } else if (nextScore > 50) {
-                currentScore = 25; // 25点に戻る
-                logAction(previousScore, points, "OVER -> 25");
-                alert("オーバー！25点に戻ります。");
-            } else {
-                currentScore = nextScore;
-                logAction(previousScore, points, isSnipe ? "Snipe" : "Break");
-            }
-
-            // 画面更新
-            scoreEl.innerText = currentScore;
-            
-            // ログエリアを一番下にスクロール
-            logArea.scrollTop = logArea.scrollHeight;
-        }
-
-        // ログを表示に追加
-        function logAction(prev, points, type) {
-            const div = document.createElement('div');
-            div.className = "flex justify-between text-sm border-b border-gray-800 pb-1";
-            
-            // 色分け
-            let pointColor = points === 0 ? "text-red-400" : "text-green-400";
-            
-            div.innerHTML = `
-                <span class="text-gray-500 w-12">${history.length + 1}投目</span>
-                <span class="${pointColor} font-bold w-12 text-center">${points}pt</span>
-                <span class="text-gray-600 text-xs w-20 text-right">${type}</span>
-                <span class="text-white font-mono ml-auto">${prev} → ${currentScore}</span>
-            `;
-            logArea.appendChild(div);
-            history.push({ score: currentScore, miss: missCount });
-        }
-
-        // ミス表示（●●●）の更新
-        function updateMissDisplay() {
-            let html = '';
-            for (let i = 0; i < 3; i++) {
-                if (i < missCount) {
-                    html += '<span class="text-red-500">❌</span>';
+                if(nextScore === 50) {
+                    player.score = 50;
+                    endGame(player.name);
+                    return;
+                } else if(nextScore > 50) {
+                    alert("オーバー！25点に戻ります。");
+                    player.score = 25;
                 } else {
-                    html += '<span class="text-gray-700">●</span>';
+                    player.score = nextScore;
                 }
+                player.history.push(points);
             }
-            missEl.innerHTML = html;
+
+            // 次のプレイヤーへ（全員失格していない前提の簡易ループ）
+            currentIndex = (currentIndex + 1) % players.length;
+            
+            updateScoreboard();
         }
 
-        // リセット処理
-        function resetGame() {
-            if(!confirm("スコアをリセットしますか？")) return;
-            currentScore = 0;
-            missCount = 0;
-            history = [];
-            scoreEl.innerText = 0;
-            scoreEl.classList.remove("text-green-400");
-            logArea.innerHTML = '<div class="text-center text-xs text-gray-600 mt-4">-- 試合開始 --</div>';
-            updateMissDisplay();
+        // --- 画面更新 ---
+        function updateScoreboard() {
+            const tbody = document.getElementById('scoreboard-body');
+            tbody.innerHTML = "";
+
+            players.forEach((p, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-gray-700 " + (index === currentIndex ? "bg-gray-700" : "");
+                
+                // ミス表示（●●●）
+                let missHtml = "";
+                for(let i=0; i<3; i++) missHtml += (i < p.miss) ? "❌" : "<span class='text-gray-600'>●</span>";
+
+                tr.innerHTML = `
+                    <td class="py-3 pl-2 font-bold ${index === currentIndex ? 'text-green-400' : 'text-gray-300'}">
+                        ${p.name}
+                        ${index === currentIndex ? '<span class="text-xs ml-1">◀</span>' : ''}
+                    </td>
+                    <td class="text-center text-xs tracking-tighter">${missHtml}</td>
+                    <td class="text-right pr-4 font-mono text-xl font-bold">${p.score}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // 下部パネルの名前更新
+            document.getElementById('current-player-name').innerText = players[currentIndex].name;
+        }
+
+        // --- ゲーム終了 ---
+        function endGame(winnerName) {
+            document.getElementById('winner-name').innerText = winnerName;
+            showView('view-result');
         }
     </script>
 </body>
