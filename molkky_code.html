@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Final V6)</title>
+    <title>Mölkky Stats Pro (Final V7)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -25,8 +25,6 @@
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
         .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
-        
-        /* チャート用 */
         .chart-label-group { cursor: pointer; }
         .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
         .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
@@ -64,7 +62,7 @@
         const matchesRef = ref(db, 'matches');
         const activeGameRef = ref(db, 'active_game');
 
-        // --- 初期データ (昨日の4試合分含む) ---
+        // --- 初期データ (レガシー) ---
         const LEGACY_STATS = {
             "吉谷悠": { games: 70, wins: 26, throws: 700, misses: 231, points: 2800 },
             "石井山拓登": { games: 65, wins: 27, throws: 650, misses: 149, points: 2600 },
@@ -93,10 +91,13 @@
             if (document.getElementById('records-container')) renderRecordsContent();
         });
 
+        // ★ リアルタイム同期 & 強制遷移ロジック ★
         onValue(activeGameRef, (snapshot) => {
             const data = snapshot.val();
             const homeBtn = document.getElementById('btn-new-game');
+
             if (data) {
+                // 進行中データがある場合
                 isGameActive = true;
                 players = data.players || [];
                 currentIndex = data.currentIndex || 0;
@@ -104,18 +105,33 @@
                 eliminatedStack = data.eliminatedStack || [];
                 currentMode = data.currentMode || 'snipe';
                 undoStack = data.undoStack ? JSON.parse(data.undoStack) : [];
+
+                // HOMEボタンの表示変更
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加';
                     homeBtn.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse";
                     homeBtn.onclick = () => window.router('game');
                 }
-                if (document.getElementById('view-game-container')) renderGameContent(); 
+                // もしゲーム画面を見ていたら内容を更新
+                if (document.getElementById('view-game-container')) {
+                    renderGameContent(); 
+                }
             } else {
+                // 進行中データが消えた（終了 または 中断）場合
                 isGameActive = false;
+                
+                // HOMEボタンを戻す
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">🔥</span> 新しい試合';
                     homeBtn.className = "w-full py-5 bg-yellow-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-yellow-500 transition transform hover:-translate-y-1 flex items-center justify-center";
                     homeBtn.onclick = () => window.router('setup');
+                }
+
+                // ★ 強制送還ロジック:
+                // もし今ゲーム入力画面にいたら、データが消えたので強制的にHOMEに戻す
+                if (document.getElementById('view-game-container')) {
+                    alert("ホストによりゲームが中断されました。");
+                    window.router('home');
                 }
             }
         });
@@ -217,11 +233,20 @@
                         <button onclick="window.inputScore(0)" class="flex-1 py-3 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button>
                         <button onclick="window.undoLastThrow()" class="w-24 btn-undo rounded-xl text-lg font-bold flex items-center justify-center active:bg-gray-700 transition text-white"><span class="text-sm">◂ 1投戻る</span></button>
                     </div>
+                    <div class="mt-6 mb-2 px-4">
+                        <button onclick="window.abortGame()" class="w-full py-2 text-red-500 text-xs font-bold underline opacity-60 hover:opacity-100">⛔ ゲームを中断・破棄する</button>
+                    </div>
                 </div>`;
         }
         window.switchMode = function(mode) { currentMode = mode; saveActiveGame(); }
         function saveActiveGame() { set(activeGameRef, { players, currentIndex, clearOrder, eliminatedStack, currentMode, undoStack: JSON.stringify(undoStack) }); }
         
+        // ★ゲーム中断機能
+        window.abortGame = function() {
+            if(!confirm("【注意】\nゲームを中断して破棄します。\n記録は保存されません。\n参加者全員がホーム画面に戻ります。\n\n本当によろしいですか？")) return;
+            remove(activeGameRef); // これを消すと、onValueリスナーが反応して全員強制送還される
+        }
+
         window.inputScore = function(pnt) {
             undoStack.push(JSON.parse(JSON.stringify({ players, currentIndex, clearOrder, eliminatedStack, currentMode })));
             const p = players[currentIndex];
@@ -275,13 +300,8 @@
                 m.ranking.forEach((name, rIdx) => {
                     if(!pStats[name]) return;
                     let ps = pStats[name], ns = ps.newStats;
-                    // 全体(手動分はここで合算されていないのでここで足す必要あり？ -> LEGACY_STATSに合算済なのでここでは足さない、グラフ用履歴だけ追加)
-                    // ★重要: LEGACY_STATSは今日の分を含んでいるので、ここでは stats への加算はしない。
-                    // グラフ用に履歴だけ追加
+                    // LEGACY_STATSに合算済なのでここでは足さない、グラフ用履歴だけ追加
                     ps.last10Stats.push({ rank: rIdx+1 });
-                    
-                    // 新規スタッツ計算用 (ただし得点などの詳細がないのでランキング以外は計算不可)
-                    // ラス回避や勝率の「新規のみ」グラフには反映させたい
                     ns.games++; if(rIdx===0) ns.wins++; if(rIdx===m.ranking.length-1) ns.lastPlaceCount++;
                 });
             });
@@ -322,16 +342,10 @@
 
         function genRadar(d) {
             const s = d.newStats; 
-            // グラフは新規データの勝率等で描画する (狙撃率等は0)
-            // 新規データが全くない場合だけ非表示
             if (s.games === 0) return '<div class="text-xs text-gray-500 py-8">新規データ不足のため表示できません</div>';
-
             const winRate = Math.round((s.wins/s.games)*100);
             const avoidLast = Math.round(((s.games - s.lastPlaceCount) / s.games) * 100);
-            // 他の要素は詳細データがないため0とする（または適当な値を入れないとグラフが潰れるが、正確性優先で0）
-            // 全体データから命中率だけ借りる
             const acc = Math.round(((d.stats.throws - d.stats.misses) / d.stats.throws)*100);
-
             const params = [{l:"勝率",v:winRate},{l:"命中率",v:acc},{l:"狙撃率",v:0},{l:"勝負強さ",v:0},{l:"得点力",v:0},{l:"ラス回避",v:avoidLast}];
             let pts="", lines="", lbls=""; const cx=150, cy=150, r=90;
             for(let i=0;i<6;i++){ const a=(Math.PI*2*i/6)-(Math.PI/2); const v=params[i].v; pts+=`${cx+(r*(v/100))*Math.cos(a)},${cy+(r*(v/100))*Math.sin(a)} `; lines+=`<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#374151"/>`; const lx=cx+(r+35)*Math.cos(a), ly=cy+(r+35)*Math.sin(a); lbls+=`<text x="${lx}" y="${ly}" font-size="10" fill="#fff" text-anchor="middle">${params[i].l}\n${v}%</text>`; }
@@ -339,43 +353,24 @@
         }
         
         function genLast10Stats(d) {
-            // スタイル適用：数値を大きく、単位を小さく
-            const stVal = "text-3xl font-black"; 
-            const stUnit = "text-xs font-bold ml-1 text-gray-400";
-            const box = "bg-gray-800 p-2 rounded flex flex-col justify-center items-center h-20 border border-gray-700";
-
-            const wins = d.wins;
-            const total = d.totalGames;
-            const winRate = Math.round((wins/total)*100);
+            const stVal = "text-3xl font-black"; const stUnit = "text-xs font-bold ml-1 text-gray-400"; const box = "bg-gray-800 p-2 rounded flex flex-col justify-center items-center h-20 border border-gray-700";
+            const winRate = Math.round((d.wins/d.totalGames)*100);
             const avgRank = (d.rankSum / d.totalGames).toFixed(2);
             const avgScore = d.stats.throws > 0 ? (d.stats.totalPoints/d.stats.throws).toFixed(1) : "-";
             const acc = Math.round(((d.stats.throws - d.stats.misses) / d.stats.throws)*100);
-
             const ns = d.newStats;
             const hasNew = ns.games > 0;
-            // 狙撃率は常に "-"
             const snipeRate = "-";
             const lastAvoid = hasNew ? Math.round(((ns.games - ns.lastPlaceCount) / ns.games)*100) : "-";
             
-            return `
-                <div class="grid grid-cols-3 gap-2 text-center">
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">%</span></div><span class="stat-label">命中率 (全体)</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${snipeRate}</span></div><span class="stat-label">狙撃率</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div>
-                </div>`;
+            return `<div class="grid grid-cols-3 gap-2 text-center"><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">%</span></div><span class="stat-label">命中率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${snipeRate}</span></div><span class="stat-label">狙撃率</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div></div>`;
         }
 
         function genLine(ranks) {
             if (!ranks || ranks.length === 0) return '<div class="text-xs text-gray-600 text-center py-4">新規データなし</div>';
             const r = ranks.slice(-10);
-            if (r.length === 1) {
-                return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700"><line x1="0" y1="50" x2="280" y2="50" stroke="#374151" stroke-dasharray="4" /><circle cx="140" cy="${10 + (r[0] - 1) * 20}" r="4" fill="#60a5fa"/><text x="140" y="${10 + (r[0] - 1) * 20 - 10}" fill="#60a5fa" font-size="12" text-anchor="middle">${r[0]}位</text></svg>`;
-            }
-            const w=280, h=80, step=w/(r.length-1);
-            let p=""; r.forEach((rk,i)=>{ p+=`${i*step},${10+(rk-1)*20} `; });
+            if (r.length === 1) return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700"><line x1="0" y1="50" x2="280" y2="50" stroke="#374151" stroke-dasharray="4" /><circle cx="140" cy="${10 + (r[0] - 1) * 20}" r="4" fill="#60a5fa"/><text x="140" y="${10 + (r[0] - 1) * 20 - 10}" fill="#60a5fa" font-size="12" text-anchor="middle">${r[0]}位</text></svg>`;
+            const w=280, h=80, step=w/(r.length-1); let p=""; r.forEach((rk,i)=>{ p+=`${i*step},${10+(rk-1)*20} `; });
             return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700"><polyline points="${p}" fill="none" stroke="#60a5fa" stroke-width="2"/>${r.map((rk,i)=>`<circle cx="${i*step}" cy="${10+(rk-1)*20}" r="3" fill="#60a5fa"/>`).join('')}</svg>`;
         }
     </script>
