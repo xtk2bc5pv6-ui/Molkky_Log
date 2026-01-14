@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Final V7)</title>
+    <title>Mölkky Stats Pro (Final V9)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -26,9 +26,6 @@
         .detail-open { max-height: 1200px; } 
         .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
         .chart-label-group { cursor: pointer; }
-        .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
-        .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
-        .chart-label-group:active .chart-value-text, .chart-label-group:hover .chart-value-text { display: block; }
         .drag-handle { cursor: grab; touch-action: none; color: #6b7280; }
         .drag-handle:active { cursor: grabbing; color: #fff; }
         .sortable-ghost { opacity: 0.4; background: #374151; }
@@ -91,13 +88,10 @@
             if (document.getElementById('records-container')) renderRecordsContent();
         });
 
-        // ★ リアルタイム同期 & 強制遷移ロジック ★
         onValue(activeGameRef, (snapshot) => {
             const data = snapshot.val();
             const homeBtn = document.getElementById('btn-new-game');
-
             if (data) {
-                // 進行中データがある場合
                 isGameActive = true;
                 players = data.players || [];
                 currentIndex = data.currentIndex || 0;
@@ -105,30 +99,19 @@
                 eliminatedStack = data.eliminatedStack || [];
                 currentMode = data.currentMode || 'snipe';
                 undoStack = data.undoStack ? JSON.parse(data.undoStack) : [];
-
-                // HOMEボタンの表示変更
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加';
                     homeBtn.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse";
                     homeBtn.onclick = () => window.router('game');
                 }
-                // もしゲーム画面を見ていたら内容を更新
-                if (document.getElementById('view-game-container')) {
-                    renderGameContent(); 
-                }
+                if (document.getElementById('view-game-container')) renderGameContent(); 
             } else {
-                // 進行中データが消えた（終了 または 中断）場合
                 isGameActive = false;
-                
-                // HOMEボタンを戻す
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">🔥</span> 新しい試合';
                     homeBtn.className = "w-full py-5 bg-yellow-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-yellow-500 transition transform hover:-translate-y-1 flex items-center justify-center";
                     homeBtn.onclick = () => window.router('setup');
                 }
-
-                // ★ 強制送還ロジック:
-                // もし今ゲーム入力画面にいたら、データが消えたので強制的にHOMEに戻す
                 if (document.getElementById('view-game-container')) {
                     alert("ホストによりゲームが中断されました。");
                     window.router('home');
@@ -233,18 +216,15 @@
                         <button onclick="window.inputScore(0)" class="flex-1 py-3 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button>
                         <button onclick="window.undoLastThrow()" class="w-24 btn-undo rounded-xl text-lg font-bold flex items-center justify-center active:bg-gray-700 transition text-white"><span class="text-sm">◂ 1投戻る</span></button>
                     </div>
-                    <div class="mt-6 mb-2 px-4">
-                        <button onclick="window.abortGame()" class="w-full py-2 text-red-500 text-xs font-bold underline opacity-60 hover:opacity-100">⛔ ゲームを中断・破棄する</button>
-                    </div>
+                    <div class="mt-6 mb-2 px-4"><button onclick="window.abortGame()" class="w-full py-2 text-red-500 text-xs font-bold underline opacity-60 hover:opacity-100">⛔ ゲームを中断・破棄する</button></div>
                 </div>`;
         }
         window.switchMode = function(mode) { currentMode = mode; saveActiveGame(); }
         function saveActiveGame() { set(activeGameRef, { players, currentIndex, clearOrder, eliminatedStack, currentMode, undoStack: JSON.stringify(undoStack) }); }
         
-        // ★ゲーム中断機能
         window.abortGame = function() {
             if(!confirm("【注意】\nゲームを中断して破棄します。\n記録は保存されません。\n参加者全員がホーム画面に戻ります。\n\n本当によろしいですか？")) return;
-            remove(activeGameRef); // これを消すと、onValueリスナーが反応して全員強制送還される
+            remove(activeGameRef); 
         }
 
         window.inputScore = function(pnt) {
@@ -288,25 +268,18 @@
         function renderRecordsContent() {
             const con = document.getElementById('records-container'); if(!con) return; con.innerHTML = '';
             let pStats = {};
-
-            // 1. レガシー
             for(const [name, d] of Object.entries(LEGACY_STATS)) {
                 const nonWin = d.games - d.wins;
                 pStats[name] = { rankSum: (d.wins*1)+(nonWin*2.5), wins: d.wins, totalGames: d.games, stats: { throws: d.throws, misses: d.misses, totalPoints: d.points, snipes:0, breaks:0, clutchHits:0, clutchMisses:0 }, newStats: { games:0, wins:0, lastPlaceCount:0, snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0 }, last10Stats: [] };
             }
-
-            // 2. 今日(手動4戦)
             TODAY_MATCHES.forEach((m, idx) => {
                 m.ranking.forEach((name, rIdx) => {
                     if(!pStats[name]) return;
                     let ps = pStats[name], ns = ps.newStats;
-                    // LEGACY_STATSに合算済なのでここでは足さない、グラフ用履歴だけ追加
                     ps.last10Stats.push({ rank: rIdx+1 });
                     ns.games++; if(rIdx===0) ns.wins++; if(rIdx===m.ranking.length-1) ns.lastPlaceCount++;
                 });
             });
-
-            // 3. Firebase
             globalMatchHistory.forEach(m => {
                 m.ranking.forEach((name, idx) => {
                     if(!pStats[name]) pStats[name] = { rankSum:0, wins:0, totalGames:0, stats:{throws:0, misses:0, totalPoints:0, snipes:0, breaks:0, clutchHits:0, clutchMisses:0}, newStats:{games:0, wins:0, lastPlaceCount:0, snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0}, last10Stats:[] };
@@ -321,34 +294,46 @@
                     }
                 });
             });
-
             let lb = Object.keys(pStats).map(n => { const d=pStats[n]; return { name:n, avgRank:d.totalGames>0?d.rankSum/d.totalGames:999, ppt:d.stats.throws>0?d.stats.totalPoints/d.stats.throws:0, data:d }; }).sort((a,b) => a.avgRank - b.avgRank);
-
             lb.forEach((p, i) => {
                 let rc = i===0?"rank-1":i===1?"rank-2":i===2?"rank-3":"text-white";
                 const row = document.createElement('div');
                 row.className = "bg-gray-800 rounded-xl mb-3 overflow-hidden border border-gray-700";
-                row.innerHTML = `
-                    <div class="flex items-center p-4 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('detail-open')"><div class="w-10 text-center text-2xl font-black ${rc}">${i+1}</div><div class="flex-1 pl-2 font-bold text-lg text-white">${p.name}</div><div class="w-16 text-center font-mono font-bold text-yellow-400">${p.avgRank.toFixed(2)}</div><div class="w-12 text-center text-xs text-gray-500 font-mono">${p.ppt.toFixed(1)}</div></div>
-                    <div class="player-detail px-4 bg-gray-900 border-t border-gray-800"><div class="py-4 space-y-6">
-                        <div class="chart-container text-center"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR (New Games)</h4>${genRadar(p.data)}</div>
-                        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700"><h4 class="text-xs text-gray-400 mb-3 font-bold border-b border-gray-700 pb-2 tracking-widest">主要指標</h4>${genLast10Stats(p.data)}</div>
-                        <div class="chart-container"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">RANKING HISTORY (New Games)</h4>${genLine(p.data.last10Stats.map(x=>x.rank))}</div>
-                    </div></div>`;
+                row.innerHTML = `<div class="flex items-center p-4 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('detail-open')"><div class="w-10 text-center text-2xl font-black ${rc}">${i+1}</div><div class="flex-1 pl-2 font-bold text-lg text-white">${p.name}</div><div class="w-16 text-center font-mono font-bold text-yellow-400">${p.avgRank.toFixed(2)}</div><div class="w-12 text-center text-xs text-gray-500 font-mono">${p.ppt.toFixed(1)}</div></div><div class="player-detail px-4 bg-gray-900 border-t border-gray-800"><div class="py-4 space-y-6"><div class="chart-container text-center"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR</h4>${genRadar(p.data)}</div><div class="bg-gray-800 p-4 rounded-lg border border-gray-700"><h4 class="text-xs text-gray-400 mb-3 font-bold border-b border-gray-700 pb-2 tracking-widest">主要指標</h4>${genLast10Stats(p.data)}</div><div class="chart-container"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">RANKING HISTORY (New Games)</h4>${genLine(p.data.last10Stats.map(x=>x.rank))}</div></div></div>`;
                 con.appendChild(row);
             });
-            con.innerHTML += `<div class="mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400"><h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3><table class="w-full text-left border-collapse"><tbody class="divide-y divide-gray-700"><tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点 (PPT)。<br>5.0以上で上級者。</td></tr><tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率。</td></tr><tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。<br><span class="text-gray-500">※新規データのみで算出</span></td></tr><tr><th class="py-2 text-white font-bold pr-2">狙撃率</th><td class="py-2">データなし(常に-)</td></tr></tbody></table></div>`;
+            con.innerHTML += `<div class="mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400"><h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3><table class="w-full text-left border-collapse"><tbody class="divide-y divide-gray-700"><tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点 (PPT)。<br>5.0以上で上級者。</td></tr><tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率。(全データ)</td></tr><tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr><tr><th class="py-2 text-white font-bold pr-2">命中率</th><td class="py-2">ミスをしなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr></tbody></table></div>`;
         }
 
         function genRadar(d) {
             const s = d.newStats; 
-            if (s.games === 0) return '<div class="text-xs text-gray-500 py-8">新規データ不足のため表示できません</div>';
-            const winRate = Math.round((s.wins/s.games)*100);
-            const avoidLast = Math.round(((s.games - s.lastPlaceCount) / s.games) * 100);
-            const acc = Math.round(((d.stats.throws - d.stats.misses) / d.stats.throws)*100);
-            const params = [{l:"勝率",v:winRate},{l:"命中率",v:acc},{l:"狙撃率",v:0},{l:"勝負強さ",v:0},{l:"得点力",v:0},{l:"ラス回避",v:avoidLast}];
+            // グラフは常に表示する
+            const tThrows = s.snipes+s.breaks+s.misses||1;
+            const vThrows = s.snipes+s.breaks||1;
+            const tClutch = s.clutchHits+s.clutchMisses||1;
+
+            // 1. 勝率 (合計)
+            const winRate = Math.round((d.wins/d.totalGames)*100);
+
+            // 2. その他 (新規のみ, データなければ0)
+            const hasNew = s.games > 0;
+            const acc = hasNew ? Math.round(((s.throws - s.misses)/s.throws)*100) : 0;
+            const snipe = hasNew ? Math.round((s.snipes/vThrows)*100) : 0;
+            const clutch = (hasNew && tClutch>0) ? Math.round((s.clutchHits/tClutch)*100) : 0;
+            const power = hasNew ? Math.min(100, Math.round(((s.totalPoints/s.throws || 0)/7) * 100)) : 0;
+            const avoidLast = hasNew ? Math.round(((s.games - s.lastPlaceCount) / s.games) * 100) : 0;
+
+            const params = [{l:"勝率",v:winRate},{l:"命中率",v:acc},{l:"狙撃率",v:snipe},{l:"勝負強さ",v:clutch},{l:"得点力",v:power},{l:"ラス回避",v:avoidLast}];
             let pts="", lines="", lbls=""; const cx=150, cy=150, r=90;
-            for(let i=0;i<6;i++){ const a=(Math.PI*2*i/6)-(Math.PI/2); const v=params[i].v; pts+=`${cx+(r*(v/100))*Math.cos(a)},${cy+(r*(v/100))*Math.sin(a)} `; lines+=`<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#374151"/>`; const lx=cx+(r+35)*Math.cos(a), ly=cy+(r+35)*Math.sin(a); lbls+=`<text x="${lx}" y="${ly}" font-size="10" fill="#fff" text-anchor="middle">${params[i].l}\n${v}%</text>`; }
+            for(let i=0;i<6;i++){ 
+                const a=(Math.PI*2*i/6)-(Math.PI/2); 
+                const v=params[i].v; 
+                pts+=`${cx+(r*(v/100))*Math.cos(a)},${cy+(r*(v/100))*Math.sin(a)} `; 
+                lines+=`<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#374151"/>`; 
+                const lx=cx+(r+35)*Math.cos(a), ly=cy+(r+35)*Math.sin(a); 
+                // ★ 数値強調のデザイン ★
+                lbls+=`<text x="${lx}" y="${ly-7}" font-size="9" fill="#9ca3af" text-anchor="middle" font-weight="bold">${params[i].l}</text><text x="${lx}" y="${ly+8}" font-size="16" fill="#facc15" text-anchor="middle" font-weight="900" font-family="'Roboto', sans-serif">${v}%</text>`; 
+            }
             return `<svg viewBox="-20 -20 340 340" class="w-full"><circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/><circle cx="150" cy="150" r="45" fill="none" stroke="#374151" stroke-dasharray="2,2"/>${lines}<polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>${lbls}</svg>`;
         }
         
@@ -357,13 +342,15 @@
             const winRate = Math.round((d.wins/d.totalGames)*100);
             const avgRank = (d.rankSum / d.totalGames).toFixed(2);
             const avgScore = d.stats.throws > 0 ? (d.stats.totalPoints/d.stats.throws).toFixed(1) : "-";
-            const acc = Math.round(((d.stats.throws - d.stats.misses) / d.stats.throws)*100);
+            
             const ns = d.newStats;
             const hasNew = ns.games > 0;
-            const snipeRate = "-";
+            // 命中率 (新規)
+            const acc = hasNew ? Math.round(((ns.throws - ns.misses) / ns.throws)*100) : "-";
+            const snipeRate = hasNew ? Math.round((ns.snipes / (ns.snipes+ns.breaks||1))*100) : "-";
             const lastAvoid = hasNew ? Math.round(((ns.games - ns.lastPlaceCount) / ns.games)*100) : "-";
             
-            return `<div class="grid grid-cols-3 gap-2 text-center"><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">%</span></div><span class="stat-label">命中率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${snipeRate}</span></div><span class="stat-label">狙撃率</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div></div>`;
+            return `<div class="grid grid-cols-3 gap-2 text-center"><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">${acc==='-'?'':'%'}</span></div><span class="stat-label">命中率 (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${snipeRate}</span><span class="${stUnit}">${snipeRate==='-'?'':'%'}</span></div><span class="stat-label">狙撃率 (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div></div>`;
         }
 
         function genLine(ranks) {
