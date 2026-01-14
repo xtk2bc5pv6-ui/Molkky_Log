@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Fixed)</title>
+    <title>Mölkky Stats Pro (Latest)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -71,7 +71,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // ↓↓↓↓↓ Firebase設定 (ここを書き換えてください) ↓↓↓↓↓
+        // ↓↓↓↓↓ ここをあなたのFirebase設定に書き換えてください ↓↓↓↓↓
         const firebaseConfig = {
             apiKey: "AIzaSyAkxCP38Q9t4ggTn3ippGqp1ood-yfkjls",
             authDomain: "molkkystatus.firebaseapp.com",
@@ -88,16 +88,26 @@
         const matchesRef = ref(db, 'matches');
         const activeGameRef = ref(db, 'active_game');
 
-        // 初期データ (レガシー)
+        // --- ★初期データ (今日の結果4試合分を加算済み) ---
+        // ※ 投数、ミス数、得点は過去の平均値に基づき比例加算しています
         const LEGACY_STATS = {
-            "吉谷悠": { games: 66, wins: 25, throws: 660, misses: 218, points: 2640 },
-            "石井山拓登": { games: 61, wins: 26, throws: 610, misses: 140, points: 2440 },
-            "森岡凜太郎": { games: 35, wins: 14, throws: 350, misses: 98, points: 1400 }
+            "吉谷悠": { 
+                games: 70, wins: 26, // +4戦 +1勝
+                throws: 700, misses: 231, points: 2800 
+            },
+            "石井山拓登": { 
+                games: 65, wins: 27, // +4戦 +1勝
+                throws: 650, misses: 149, points: 2600 
+            },
+            "森岡凜太郎": { 
+                games: 39, wins: 16, // +4戦 +2勝
+                throws: 390, misses: 109, points: 1560 
+            }
         };
 
         const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
         let players = [], currentIndex = 0, clearOrder = [], eliminatedStack = [], currentMode = 'snipe';
-        let undoStack = []; // 履歴スタック
+        let undoStack = []; 
         let globalMatchHistory = [];
         let isGameActive = false;
 
@@ -119,7 +129,6 @@
                 clearOrder = data.clearOrder || [];
                 eliminatedStack = data.eliminatedStack || [];
                 currentMode = data.currentMode || 'snipe';
-                // UndoStackの復元 (無い場合は空配列)
                 undoStack = data.undoStack ? JSON.parse(data.undoStack) : [];
 
                 if (homeBtn) {
@@ -307,13 +316,11 @@
         function saveActiveGame() {
             set(activeGameRef, {
                 players, currentIndex, clearOrder, eliminatedStack, currentMode, 
-                // スタックはJSON文字列化して保存(データ欠損防止)
                 undoStack: JSON.stringify(undoStack) 
             });
         }
 
         window.inputScore = function(pnt) {
-            // Undo用に保存 (Deep Copy)
             undoStack.push(JSON.parse(JSON.stringify({ players, currentIndex, clearOrder, eliminatedStack, currentMode })));
 
             const p = players[currentIndex];
@@ -333,7 +340,6 @@
                 else p.score=next;
             }
             
-            // 次の人へ
             const active = players.filter(pl=>pl.status===STATUS.PLAYING);
             if(active.length<=1) {
                 saveActiveGame(); 
@@ -349,13 +355,12 @@
         window.undoLastThrow = function() {
             if (undoStack.length === 0) return alert("これ以上戻れません");
             const prev = undoStack.pop();
-            // 状態復元
             players = prev.players;
             currentIndex = prev.currentIndex;
             clearOrder = prev.clearOrder;
             eliminatedStack = prev.eliminatedStack;
             currentMode = prev.currentMode;
-            saveActiveGame(); // 同期
+            saveActiveGame(); 
         }
 
         function finishGameLogic() {
@@ -372,7 +377,6 @@
 
         // --- 4. Result ---
         function renderResult() {
-            // 結果画面
             const surv = players.filter(p=>p.status===STATUS.PLAYING);
             const rankObj = [...clearOrder, ...surv, ...eliminatedStack.reverse()];
 
@@ -477,7 +481,7 @@
             // ソート
             let lb = Object.keys(pStats).map(n => {
                 const d = pStats[n];
-                const avg = d.totalGames > 0 ? d.rankSum / d.totalGames : 999;
+                const avg = d.rankSum / d.totalGames;
                 const ppt = d.stats.throws > 0 ? (d.stats.totalPoints / d.stats.throws) : 0;
                 return { name:n, avgRank:avg, ppt:ppt, data:d };
             }).sort((a,b) => a.avgRank - b.avgRank);
@@ -489,7 +493,7 @@
                 let rankClass = "text-gray-500";
                 if(i===0) rankClass="rank-1"; else if(i===1) rankClass="rank-2"; else if(i===2) rankClass="rank-3"; else rankClass="text-white";
                 
-                const avgRankText = p.avgRank === 999 ? "-" : p.avgRank.toFixed(2);
+                const avgRankText = p.avgRank.toFixed(2);
 
                 const row = document.createElement('div');
                 row.className = "bg-gray-800 rounded-xl mb-3 overflow-hidden border border-gray-700";
@@ -519,7 +523,6 @@
                 con.appendChild(row);
             });
 
-            // ガイド
             const glossary = document.createElement('div');
             glossary.className = "mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400";
             glossary.innerHTML = `
@@ -539,7 +542,6 @@
             con.appendChild(glossary);
         }
 
-        // --- Helper: スタッツ計算 (1件でもあれば表示) ---
         function genRadar(d) {
             const s = d.newStats; 
             const hasNew = s.games > 0;
@@ -551,7 +553,6 @@
             const winRate = Math.round((d.wins/d.totalGames)*100);
             const acc = Math.round(((d.stats.throws - d.stats.misses) / d.stats.throws)*100);
 
-            // 新規データがあれば計算、なければ0 (でもチャートは描画する)
             const snipe = hasNew ? Math.round((s.snipes/vThrows)*100) : 0;
             const clutch = (hasNew && tClutch>0) ? Math.round((s.clutchHits/tClutch)*100) : 0;
             const power = hasNew ? Math.min(100, Math.round(((s.totalPoints/s.throws || 0)/7) * 100)) : 0;
@@ -607,13 +608,10 @@
                 </div>`;
         }
 
-        // --- Helper: 1件でもグラフ(点)を表示 ---
         function genLine(ranks) {
             if (!ranks || ranks.length === 0) return '<div class="text-xs text-gray-600 text-center py-4">新規データなし</div>';
             
             const r = ranks.slice(-10);
-            
-            // データが1件の場合: 真ん中に点を打つ
             if (r.length === 1) {
                 return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700">
                     <line x1="0" y1="50" x2="280" y2="50" stroke="#374151" stroke-dasharray="4" />
@@ -621,8 +619,6 @@
                     <text x="140" y="${10 + (r[0] - 1) * 20 - 10}" fill="#60a5fa" font-size="12" text-anchor="middle">${r[0]}位</text>
                 </svg>`;
             }
-
-            // 2件以上
             const w=280, h=80, step=w/(r.length-1);
             let p=""; r.forEach((rk,i)=>{ p+=`${i*step},${10+(rk-1)*20} `; });
             return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700"><polyline points="${p}" fill="none" stroke="#60a5fa" stroke-width="2"/>${r.map((rk,i)=>`<circle cx="${i*step}" cy="${10+(rk-1)*20}" r="3" fill="#60a5fa"/>`).join('')}</svg>`;
