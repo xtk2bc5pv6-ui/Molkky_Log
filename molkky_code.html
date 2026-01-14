@@ -37,12 +37,11 @@
         .mode-snipe .score-btn { background: radial-gradient(circle at 30% 30%, #e4c49f, #c89f72); color: #3e2723; border: 2px solid #5d4037; border-radius: 50%; }
         .mode-break .score-btn { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; border: 1px solid #93c5fd; border-radius: 12px; }
         
-        /* MISSボタン */
+        /* ボタン類 */
         .btn-miss { background: linear-gradient(to bottom, #ef4444, #dc2626); box-shadow: 0 3px 0 #991b1b; }
         .btn-miss:active { transform: translateY(2px); box-shadow: 0 1px 0 #991b1b; }
 
-        /* UNDOボタン */
-        .btn-undo { background: #374151; border: 1px solid #4b5563; box-shadow: 0 3px 0 #1f2937; }
+        .btn-undo { background: #4b5563; border: 1px solid #6b7280; box-shadow: 0 3px 0 #1f2937; color: #e5e7eb; }
         .btn-undo:active { transform: translateY(2px); box-shadow: 0 1px 0 #1f2937; }
 
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
@@ -90,9 +89,9 @@
         const firebaseApp = initializeApp(firebaseConfig);
         const db = getDatabase(firebaseApp);
         const matchesRef = ref(db, 'matches'); // 確定した記録
-        const activeGameRef = ref(db, 'active_game'); // 進行中のゲーム（一時データ）
+        const activeGameRef = ref(db, 'active_game'); // 進行中のゲーム
 
-        // --- 初期データ (レガシーデータ) ---
+        // --- 初期データ (レガシー) ---
         const LEGACY_STATS = {
             "吉谷悠": { games: 66, wins: 25, throws: 660, misses: 218, points: 2640 },
             "石井山拓登": { games: 61, wins: 26, throws: 610, misses: 140, points: 2440 },
@@ -102,25 +101,23 @@
         // --- State ---
         const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
         let players = [], currentIndex = 0, clearOrder = [], eliminatedStack = [], currentMode = 'snipe';
-        let undoStack = []; // アンドゥ用履歴
+        let undoStack = []; 
         let globalMatchHistory = [];
-        let isGameActive = false; // ゲーム中かどうか
+        let isGameActive = false;
 
-        // --- データ同期: 過去の記録 (matches) ---
+        // --- データ同期: 過去の記録 ---
         onValue(matchesRef, (snapshot) => {
             const data = snapshot.val();
             globalMatchHistory = data ? Object.values(data) : [];
-            // レコード画面を開いている場合は再描画して数値を更新
             if (document.getElementById('records-container')) renderRecordsContent();
         });
 
-        // --- データ同期: 進行中のゲーム (active_game) ---
+        // --- データ同期: 進行中のゲーム ---
         onValue(activeGameRef, (snapshot) => {
             const data = snapshot.val();
             const homeBtn = document.getElementById('btn-new-game');
 
             if (data) {
-                // 進行中ゲームあり -> 状態を同期
                 isGameActive = true;
                 players = data.players || [];
                 currentIndex = data.currentIndex || 0;
@@ -129,20 +126,15 @@
                 currentMode = data.currentMode || 'snipe';
                 undoStack = data.undoStack || [];
 
-                // HOMEボタンの変化
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加';
                     homeBtn.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse";
                     homeBtn.onclick = () => window.router('game');
                 }
-
-                // ゲーム画面を開いているなら再描画
                 if (document.getElementById('view-game-container')) {
                     renderGameContent(); 
                 }
-
             } else {
-                // 進行中ゲームなし
                 isGameActive = false;
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">🔥</span> 新しい試合';
@@ -215,18 +207,12 @@
                     </div>
                 </div>
             `;
-            
             const list = document.getElementById('player-input-list');
             list.innerHTML = '';
-            
             const initialNames = players.length > 0 ? players.map(p=>p.name) : ['吉谷悠', '石井山拓登', '森岡凜太郎'];
             initialNames.forEach(n => createInputRow(list, n));
 
-            new Sortable(list, {
-                handle: '.drag-handle',
-                animation: 150,
-                ghostClass: 'sortable-ghost'
-            });
+            new Sortable(list, { handle: '.drag-handle', animation: 150, ghostClass: 'sortable-ghost' });
         }
 
         function createInputRow(container, nameValue) {
@@ -258,18 +244,14 @@
                 });
             });
             if(players.length < 1) return alert("プレイヤーがいません");
-            currentIndex = 0; 
-            currentMode = 'snipe';
-
+            currentIndex = 0; currentMode = 'snipe';
             saveActiveGame();
             window.router('game');
         }
 
         // --- 3. Game ---
         function renderGame() {
-            app.innerHTML = `
-                <div id="view-game-container" class="flex flex-col h-full bg-gray-900"></div>
-            `;
+            app.innerHTML = `<div id="view-game-container" class="flex flex-col h-full bg-gray-900"></div>`;
             renderGameContent();
         }
 
@@ -314,7 +296,9 @@
                     </div>
                     <div class="mt-2 px-4 flex gap-3">
                         <button onclick="window.inputScore(0)" class="flex-1 py-3 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button>
-                        <button onclick="window.undoLastThrow()" class="w-20 btn-undo text-white font-bold rounded-xl text-2xl flex items-center justify-center active:bg-gray-700 transition">◂</button>
+                        <button onclick="window.undoLastThrow()" class="w-20 btn-undo rounded-xl text-lg font-bold flex items-center justify-center transition">
+                            ◂ <span class="text-xs ml-1">1投戻る</span>
+                        </button>
                     </div>
                 </div>
             `;
@@ -326,16 +310,12 @@
         }
 
         function saveActiveGame() {
-            set(activeGameRef, {
-                players, currentIndex, clearOrder, eliminatedStack, currentMode, undoStack
-            });
+            set(activeGameRef, { players, currentIndex, clearOrder, eliminatedStack, currentMode, undoStack });
         }
 
         window.inputScore = function(pnt) {
-            // Undo用に現在の状態を保存
-            undoStack.push(JSON.parse(JSON.stringify({
-                players, currentIndex, clearOrder, eliminatedStack, currentMode
-            })));
+            // Undo用保存
+            undoStack.push(JSON.parse(JSON.stringify({ players, currentIndex, clearOrder, eliminatedStack, currentMode })));
 
             const p = players[currentIndex];
             const prev = p.score;
@@ -356,7 +336,6 @@
             
             const active = players.filter(pl=>pl.status===STATUS.PLAYING);
             if(active.length<=1) {
-                // ゲーム終了判定 -> 保存して遷移
                 saveActiveGame(); 
                 setTimeout(() => finishGameLogic(), 300);
             } else {
@@ -383,12 +362,12 @@
             const surv = players.filter(p=>p.status===STATUS.PLAYING);
             const rankObj = [...clearOrder, ...surv, ...eliminatedStack.reverse()];
             
-            // ★ ゲーム終了時のみ Matches に保存
+            // ★完全終了時のみ保存
             const mData = { date: new Date().toISOString(), ranking: rankObj.map(p=>p.name), details: {} };
             rankObj.forEach(p=>mData.details[p.name]=p.stats);
             
             push(matchesRef, mData);
-            remove(activeGameRef); // 一時データ削除
+            remove(activeGameRef);
             
             window.router('result');
         }
@@ -453,15 +432,16 @@
 
             let pStats = {};
 
-            // 1. 初期データ (指定ロジック: 1位以外=2.5位)
+            // 1. 初期データ (1位以外=2.5位)
             for (const [name, d] of Object.entries(LEGACY_STATS)) {
-                // (1位回数 * 1) + (それ以外 * 2.5)
                 const nonWinGames = d.games - d.wins;
-                const legacyRankSum = (d.wins * 1) + (nonWinGames * 2.5);
+                const legacyRankSum = (d.wins * 1) + (nonWinGames * 2.5); // 順位合算値
 
                 pStats[name] = {
                     rankSum: legacyRankSum, wins: d.wins, totalGames: d.games,
+                    // 全体計算用スタッツ (投げた数、ミス、得点など)
                     stats: { snipes: 0, breaks: 0, misses: d.misses, clutchHits: 0, clutchMisses: 0, totalPoints: d.points, throws: d.throws },
+                    // 新規スタッツ用
                     newStats: { snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0, games:0, wins:0, lastPlaceCount:0 },
                     last10Stats: [], isLegacy: true
                 };
@@ -477,7 +457,8 @@
                         last10Stats: [], isLegacy: false
                     };
                     let ps = pStats[name];
-                    ps.rankSum += (idx + 1); // 実際の順位を加算
+                    // 全体合算
+                    ps.rankSum += (idx + 1); 
                     if(idx===0) ps.wins++;
                     ps.totalGames++;
                     
@@ -486,7 +467,7 @@
                         // 全体スタッツ加算
                         ps.stats.misses += d.misses||0; ps.stats.totalPoints += d.totalPoints||0; ps.stats.throws += d.throws||0;
                         
-                        // ★新規スタッツのみ加算 (詳細分析用)
+                        // ★新規スタッツのみ加算
                         let ns = ps.newStats;
                         ns.games++;
                         if(idx===0) ns.wins++;
@@ -495,11 +476,7 @@
                         ns.clutchHits += d.clutchHits||0; ns.clutchMisses += d.clutchMisses||0;
                         ns.totalPoints += d.totalPoints||0; ns.throws += d.throws||0;
 
-                        ps.last10Stats.push({ 
-                            rank: idx+1, 
-                            win: idx===0,
-                            finished: m.details[name].totalPoints === 50 || d.score === 50
-                        });
+                        ps.last10Stats.push({ rank: idx+1 });
                     }
                 });
             });
@@ -507,7 +484,7 @@
             // ソート
             let lb = Object.keys(pStats).map(n => {
                 const d = pStats[n];
-                const avg = d.rankSum / d.totalGames; // 合算平均順位
+                const avg = d.rankSum / d.totalGames;
                 const ppt = d.stats.throws > 0 ? (d.stats.totalPoints / d.stats.throws) : 0;
                 return { name:n, avgRank:avg, ppt:ppt, data:d };
             }).sort((a,b) => a.avgRank - b.avgRank);
@@ -533,7 +510,7 @@
                     <div class="player-detail px-4 bg-gray-900 border-t border-gray-800">
                         <div class="py-4 space-y-6">
                             <div class="chart-container text-center">
-                                <h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR (New Games Only)</h4>
+                                <h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR (Mixed Data)</h4>
                                 ${genRadar(p.data)}
                             </div>
                             <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
@@ -549,20 +526,20 @@
                 con.appendChild(row);
             });
 
-            // ガイド
+            // 用語解説
             const glossary = document.createElement('div');
             glossary.className = "mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400";
             glossary.innerHTML = `
                 <h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3>
                 <table class="w-full text-left border-collapse">
                     <tbody class="divide-y divide-gray-700">
-                        <tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点 (PPT)。<br>5.0以上で上級者。</td></tr>
-                        <tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率。</td></tr>
-                        <tr><th class="py-2 text-white font-bold pr-2">命中率</th><td class="py-2">ミス(0点)をしなかった確率。</td></tr>
-                        <tr><th class="py-2 text-white font-bold pr-2">狙撃率</th><td class="py-2">1本倒し(Snipe)で得点した割合。<br><span class="text-gray-500">※新規データのみで算出</span></td></tr>
-                        <tr><th class="py-2 text-white font-bold pr-2">勝負強さ</th><td class="py-2">37点以上での得点成功率。<br><span class="text-gray-500">※新規データのみで算出</span></td></tr>
-                        <tr><th class="py-2 text-white font-bold pr-2">得点力</th><td class="py-2">平均得点の高さを0-100で評価したもの。<br><span class="text-gray-500">※新規データのみで算出</span></td></tr>
-                        <tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。<br><span class="text-gray-500">※新規データのみで算出</span></td></tr>
+                        <tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点。<br>初期データ＋新規データの合算。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率 (合算)。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">命中率</th><td class="py-2">ミス(0点)をしなかった確率 (合算)。</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">狙撃率</th><td class="py-2">1本倒し(Snipe)で得点した割合。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">勝負強さ</th><td class="py-2">37点以上での得点成功率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">得点力</th><td class="py-2">平均得点の高さを0-100で評価。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
                     </tbody>
                 </table>
                 <div class="h-8"></div>`;
@@ -571,21 +548,28 @@
 
         // --- Helper Functions ---
         function genRadar(d) {
-            // ★ 新規データ (newStats) のみを使用
-            const s = d.newStats; 
-            if (s.games === 0) return '<div class="text-xs text-gray-500 py-8">新規データ不足のため表示できません</div>';
+            const s = d.stats; // 合算
+            const ns = d.newStats; // 新規のみ
 
-            const tThrows = s.snipes+s.breaks+s.misses||1;
-            const vThrows = s.snipes+s.breaks||1;
-            const tClutch = s.clutchHits+s.clutchMisses||1;
+            // 1. 勝率 (合算)
+            const winRate = Math.round((d.wins/d.totalGames)*100);
+            
+            // 2. 命中率 (合算)
+            const acc = Math.round(((s.throws - s.misses) / s.throws)*100);
 
-            // 新規データだけで計算
-            const winRate = Math.round((s.wins/s.games)*100);
-            const acc = Math.round(((tThrows-s.misses)/tThrows)*100);
-            const snipe = Math.round((s.snipes/vThrows)*100);
-            const clutch = Math.round((s.clutchHits/tClutch)*100);
-            const power = Math.min(100, Math.round(((s.totalPoints/s.throws || 0)/7) * 100));
-            const avoidLast = Math.round(((s.games - s.lastPlaceCount) / s.games) * 100);
+            // 3. その他 (新規のみ)
+            // 新規データがない場合は 0 にする
+            let snipe = 0, clutch = 0, power = 0, avoidLast = 0;
+            if (ns.games > 0) {
+                const vThrows = ns.snipes + ns.breaks || 1;
+                snipe = Math.round((ns.snipes/vThrows)*100);
+                
+                const tClutch = ns.clutchHits + ns.clutchMisses || 1;
+                clutch = Math.round((ns.clutchHits/tClutch)*100);
+                
+                power = Math.min(100, Math.round(((ns.totalPoints/ns.throws || 0)/7) * 100));
+                avoidLast = Math.round(((ns.games - ns.lastPlaceCount) / ns.games) * 100);
+            }
 
             const params = [
                 {l:"勝率", e:"WIN RATE", v:winRate},
@@ -614,16 +598,13 @@
         }
 
         function genLast10Stats(d) {
-            // 合算データ
-            const s = d.stats;
-            const wins = d.wins;
-            const total = d.totalGames;
-            
-            const winRate = Math.round((wins/total)*100) + "%";
+            // 表示項目の整理
+            const winRate = Math.round((d.wins/d.totalGames)*100) + "%";
             const avgRank = (d.rankSum / d.totalGames).toFixed(2);
-            const avgScore = s.throws > 0 ? (s.totalPoints/s.throws).toFixed(1) : "-";
-            
-            // 下段は新規データ(newStats)があればそれを使う、なければハイフン
+            const avgScore = d.stats.throws > 0 ? (d.stats.totalPoints/d.stats.throws).toFixed(1) : "-";
+            const acc = Math.round(((d.stats.throws - d.stats.misses) / d.stats.throws)*100) + "%";
+
+            // 新規データのみ
             const ns = d.newStats;
             const hasNew = ns.games > 0;
             const snipeRate = hasNew ? Math.round((ns.snipes / (ns.snipes+ns.breaks||1))*100) + "%" : "-";
@@ -634,8 +615,9 @@
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-yellow-400">${winRate}</span><span class="stat-label">勝率 (全体)</span></div>
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-white">${avgRank}</span><span class="stat-label">平均順位</span></div>
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-white">${avgScore}</span><span class="stat-label">平均得点</span></div>
+                    <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-blue-300">${acc}</span><span class="stat-label">命中率 (全体)</span></div>
                     <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-green-400">${snipeRate}</span><span class="stat-label">狙撃率 (新規)</span></div>
-                    <div class="bg-gray-700 p-2 rounded flex flex-col justify-center col-span-2"><span class="stat-val text-blue-400">${lastAvoid}</span><span class="stat-label">ラス回避率 (新規)</span></div>
+                    <div class="bg-gray-700 p-2 rounded flex flex-col justify-center"><span class="stat-val text-pink-400">${lastAvoid}</span><span class="stat-label">ラス回避 (新規)</span></div>
                 </div>`;
         }
 
