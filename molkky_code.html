@@ -306,9 +306,7 @@
             rankObj.forEach((p,i)=>{ let c=i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400"; l.innerHTML+=`<div class="flex justify-between border-b border-gray-700 py-3"><div class="${c} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`; });
         }
 
-        // ★★★ 修正箇所: 確実な保存と遷移 ★★★
         window.saveAndAction = function(action) {
-            // ボタンを無効化して連打防止
             const btns = document.querySelectorAll('button');
             btns.forEach(b => b.disabled = true);
 
@@ -317,14 +315,11 @@
             const mData = { date: new Date().toISOString(), ranking: rankObj.map(p=>p.name), details: {} };
             rankObj.forEach(p=>mData.details[p.name]=p.stats);
 
-            // 保存処理
             push(matchesRef, mData)
                 .then(() => {
-                    // 保存成功 -> Active Game削除
                     return remove(activeGameRef);
                 })
                 .then(() => {
-                    // 全て完了 -> 画面遷移
                     if(action === 'rematch') {
                         window.restartGame();
                     } else {
@@ -333,7 +328,7 @@
                 })
                 .catch((e) => {
                     alert("保存エラー: " + e.message);
-                    btns.forEach(b => b.disabled = false); // エラー時はボタン復活
+                    btns.forEach(b => b.disabled = false);
                 });
         }
 
@@ -343,7 +338,7 @@
             saveActiveGame(); window.router('game'); 
         }
 
-        // RECORDS (以下変更なし)
+        // RECORDS
         function renderRecords() {
             app.innerHTML = `<div class="bg-gray-900 pt-16 flex flex-col h-full"><div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10"><h2 class="text-2xl font-black text-white text-center mb-1">RECORDS</h2><p class="text-xs text-gray-500 text-center mb-4">戦績リスト (平均順位順)</p><div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700"><div class="w-10 text-center"><span class="block text-xs font-bold text-white leading-none">順位</span><span class="block text-[8px] font-normal leading-none mt-1">RANK</span></div><div class="flex-1 pl-2"><span class="block text-xs font-bold text-white leading-none">名前</span><span class="block text-[8px] font-normal leading-none mt-1">NAME</span></div><div class="w-16 text-center"><span class="block text-xs font-bold text-white leading-none">平均順位</span><span class="block text-[8px] font-normal leading-none mt-1">AVG RANK</span></div><div class="w-12 text-center"><span class="block text-xs font-bold text-white leading-none">平均点</span><span class="block text-[8px] font-normal leading-none mt-1">AVG</span></div></div></div><div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container"></div></div>`;
             renderRecordsContent();
@@ -385,7 +380,23 @@
                 row.innerHTML = `<div class="flex items-center p-4 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('detail-open')"><div class="w-10 text-center text-2xl font-black ${rc}">${i+1}</div><div class="flex-1 pl-2 font-bold text-lg text-white">${p.name}</div><div class="w-16 text-center font-mono font-bold text-yellow-400">${p.avgRank.toFixed(2)}</div><div class="w-12 text-center text-xs text-gray-500 font-mono">${p.ppt.toFixed(1)}</div></div><div class="player-detail px-4 bg-gray-900 border-t border-gray-800"><div class="py-4 space-y-6"><div class="chart-container text-center"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR</h4>${genRadar(p.data)}</div><div class="bg-gray-800 p-4 rounded-lg border border-gray-700"><h4 class="text-xs text-gray-400 mb-3 font-bold border-b border-gray-700 pb-2 tracking-widest">主要指標</h4>${genLast10Stats(p.data)}</div><div class="chart-container"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">RANKING HISTORY (New Games)</h4>${genLine(p.data.last10Stats.map(x=>x.rank))}</div></div></div>`;
                 con.appendChild(row);
             });
-            con.innerHTML += `<div class="mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400"><h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3><table class="w-full text-left border-collapse"><tbody class="divide-y divide-gray-700"><tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点 (PPT)。<br>5.0以上で上級者。</td></tr><tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率。(全データ)</td></tr><tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。<br><span class="text-gray-500">※新規データのみで算出</span></td></tr><tr><th class="py-2 text-white font-bold pr-2">命中率</th><td class="py-2">ミスをしなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr></tbody></table></div>`;
+            // ★完全版の指標ガイドを挿入★
+            con.innerHTML += `
+            <div class="mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400">
+                <h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3>
+                <table class="w-full text-left border-collapse">
+                    <tbody class="divide-y divide-gray-700">
+                        <tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点 (PPT)。<br>5.0以上で上級者。<br>(全データ合算)</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率。<br>(全データ合算)</td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">命中率</th><td class="py-2">ミス(0点)をしなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">狙撃率</th><td class="py-2">1本倒し(Snipe)で得点した割合。<br><span class="text-gray-500">※現在は"-"(データなし)</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">勝負強さ</th><td class="py-2">37点以上での得点成功率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">得点力</th><td class="py-2">平均得点の高さを0-100で評価。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                    </tbody>
+                </table>
+                <div class="h-8"></div>
+            </div>`;
         }
 
         function genRadar(d) {
