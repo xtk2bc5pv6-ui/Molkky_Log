@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Final V14)</title>
+    <title>Mölkky Stats Pro (Final V15)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
     <style>
+        /* --- 基本設定 --- */
         body { background-color: #111827; color: white; font-family: 'Roboto', 'Noto Sans JP', sans-serif; touch-action: manipulation; height: 100dvh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; user-select: none; -webkit-user-select: none; }
         #app-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
         
@@ -27,10 +29,11 @@
         .btn-undo { background: #4b5563; border: 1px solid #6b7280; box-shadow: 0 3px 0 #1f2937; color: #e5e7eb; }
         .btn-undo:active { transform: translateY(2px); box-shadow: 0 1px 0 #1f2937; }
 
-        /* Setup画面のリスト */
+        /* Setup画面のリスト (スクロール制御修正) */
         .player-list-container {
-            max-height: 45vh; 
-            overflow-y: auto;
+            /* 3人分くらいまではそのまま表示、それを超えるとスクロール */
+            max-height: 50vh; 
+            overflow-y: auto; 
         }
         .player-row { 
             transition: all 0.2s; 
@@ -51,10 +54,13 @@
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
         .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
+        
+        /* チャート数値強調 */
         .chart-label-group { cursor: pointer; }
         .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
-        .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
-        .chart-label-group:active .chart-value-text, .chart-label-group:hover .chart-value-text { display: block; }
+        .drag-handle { cursor: grab; touch-action: none; color: #6b7280; }
+        .drag-handle:active { cursor: grabbing; color: #fff; }
+        .sortable-ghost { opacity: 0.4; background: #374151; }
     </style>
 </head>
 <body class="max-w-md mx-auto relative shadow-2xl">
@@ -98,7 +104,6 @@
             { ranking: ["吉谷悠", "森岡凜太郎", "石井山拓登"] }
         ];
 
-        // プレイヤーリスト管理
         let allPlayerNames = Object.keys(LEGACY_STATS);
 
         const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
@@ -197,6 +202,7 @@
         function createSelectableRow(container, name) {
             const div = document.createElement('div');
             div.className = "player-row w-full p-4 rounded-xl border border-gray-700 cursor-pointer flex items-center justify-between";
+            // 名前編集機能は削除、タップで選択のみ
             div.innerHTML = `<span class="text-lg font-bold text-white pointer-events-none">${name}</span>`;
             div.onclick = function() { this.classList.toggle('selected'); };
             container.appendChild(div);
@@ -244,26 +250,30 @@
                         return `<tr class="${st}"><td class="py-3 pl-3 flex items-center"><span class="w-5 text-center mr-1">${ic}</span>${pl.name}</td><td class="text-center text-[10px] text-gray-500">${mh}</td><td class="text-right pr-4 font-mono text-xl">${pl.status===STATUS.ELIMINATED?'-':pl.score}</td></tr>`;
                     }).join('')}</tbody></table>
                 </div>
-                <div class="flex-none bg-gray-900 pb-6 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-20 relative px-3">
-                    <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 mb-3">
+                
+                <div class="flex-none bg-gray-900 pb-2 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-20 relative px-3">
+                    <div class="flex justify-between items-center px-6 py-3 border-b border-gray-800 mb-2">
                         <div class="overflow-hidden"><span class="text-[10px] text-green-400 font-bold tracking-widest block">THROWING NEXT</span><span id="current-player-name" class="text-2xl font-black text-white tracking-tight truncate block">${p.name}</span></div>
                         <div class="text-right flex items-end gap-4"><div><span class="text-[9px] text-gray-500 font-bold block">MISS</span><span class="text-xl font-black text-red-400">${p.miss}</span></div><div><span class="text-[9px] text-gray-500 font-bold block">SCORE</span><span class="text-3xl font-black text-yellow-400 leading-none">${p.score}</span></div></div>
                     </div>
-                    <div class="flex justify-center mb-4"><div class="bg-gray-800 p-1 rounded-xl flex w-full max-w-xs border border-gray-700">
+
+                    <div class="flex justify-center mb-3"><div class="bg-gray-800 p-1 rounded-xl flex w-full max-w-xs border border-gray-700">
                         <button onclick="window.switchMode('snipe')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all ${currentMode==='snipe' ? 'bg-yellow-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-700'}">🎯 Snipe</button>
                         <button onclick="window.switchMode('break')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all ${currentMode==='break' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-700'}">💥 Break</button>
                     </div></div>
+                    
                     <div id="pin-container" class="${currentMode==='snipe' ? 'mode-snipe' : 'mode-break'} flex flex-col items-center">
                         <div class="pin-row"><button class="score-btn" onclick="window.inputScore(7)">7</button><button class="score-btn" onclick="window.inputScore(9)">9</button><button class="score-btn" onclick="window.inputScore(8)">8</button></div>
                         <div class="pin-row"><button class="score-btn" onclick="window.inputScore(5)">5</button><button class="score-btn" onclick="window.inputScore(11)">11</button><button class="score-btn" onclick="window.inputScore(12)">12</button><button class="score-btn" onclick="window.inputScore(6)">6</button></div>
                         <div class="pin-row"><button class="score-btn" onclick="window.inputScore(3)">3</button><button class="score-btn" onclick="window.inputScore(10)">10</button><button class="score-btn" onclick="window.inputScore(4)">4</button></div>
                         <div class="pin-row"><button class="score-btn" onclick="window.inputScore(1)">1</button><button class="score-btn" onclick="window.inputScore(2)">2</button></div>
                     </div>
-                    <div class="mt-4 px-4 flex gap-3">
-                        <button onclick="window.inputScore(0)" class="flex-1 py-4 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button>
+                    
+                    <div class="mt-3 px-4 flex gap-3">
+                        <button onclick="window.inputScore(0)" class="flex-1 py-3 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button>
                         <button onclick="window.undoLastThrow()" class="w-24 btn-undo rounded-xl text-lg font-bold flex items-center justify-center active:bg-gray-700 transition text-white"><span class="text-sm">◂ 1投戻る</span></button>
                     </div>
-                    <div class="mt-8 flex justify-center"><button onclick="window.abortGame()" class="text-red-500 text-xs font-bold underline opacity-50 hover:opacity-100 px-4 py-2">⛔ ゲームを中断・破棄する</button></div>
+                    <div class="mt-4 mb-2 flex justify-center"><button onclick="window.abortGame()" class="text-red-500 text-xs font-bold underline opacity-50 hover:opacity-100 px-4 py-2">⛔ ゲームを中断・破棄する</button></div>
                 </div>`;
         }
         window.switchMode = function(mode) { currentMode = mode; saveActiveGame(); }
@@ -297,8 +307,8 @@
                     <h2 class="text-4xl text-yellow-400 font-black mb-6 tracking-tighter drop-shadow-md">GAME SET!</h2>
                     <div class="w-full bg-gray-800 rounded-2xl p-4 mb-6 text-left space-y-2 shadow-lg border border-gray-700 overflow-y-auto max-h-[50vh]" id="result-list"></div>
                     <div class="w-full space-y-3">
-                        <button onclick="window.saveAndAction('rematch')" class="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-500 transition shadow-lg flex items-center justify-center">記録してもう一回</button>
-                        <button onclick="window.saveAndAction('home')" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition border border-gray-600">記録してタイトルへ</button>
+                        <button id="btn-rematch" onclick="window.saveAndAction('rematch')" class="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-500 transition shadow-lg flex items-center justify-center">記録してもう一回</button>
+                        <button id="btn-home" onclick="window.saveAndAction('home')" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition border border-gray-600">記録してタイトルへ</button>
                     </div>
                 </div>
             `;
@@ -306,20 +316,27 @@
             rankObj.forEach((p,i)=>{ let c=i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400"; l.innerHTML+=`<div class="flex justify-between border-b border-gray-700 py-3"><div class="${c} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`; });
         }
 
+        // ★★★ 修正箇所: 確実な保存と遷移 ★★★
         window.saveAndAction = function(action) {
-            const btns = document.querySelectorAll('button');
-            btns.forEach(b => b.disabled = true);
+            // ボタンの見た目を「保存中...」に変更して無効化
+            const btnR = document.getElementById('btn-rematch');
+            const btnH = document.getElementById('btn-home');
+            if(btnR) { btnR.disabled = true; btnR.innerText = "保存中..."; }
+            if(btnH) { btnH.disabled = true; btnH.innerText = "保存中..."; }
 
             const surv = players.filter(p=>p.status===STATUS.PLAYING);
             const rankObj = [...clearOrder, ...surv, ...eliminatedStack.reverse()];
             const mData = { date: new Date().toISOString(), ranking: rankObj.map(p=>p.name), details: {} };
             rankObj.forEach(p=>mData.details[p.name]=p.stats);
 
+            // 保存処理
             push(matchesRef, mData)
                 .then(() => {
+                    // 保存成功 -> Active Game削除
                     return remove(activeGameRef);
                 })
                 .then(() => {
+                    // 全て完了 -> 画面遷移
                     if(action === 'rematch') {
                         window.restartGame();
                     } else {
@@ -328,7 +345,9 @@
                 })
                 .catch((e) => {
                     alert("保存エラー: " + e.message);
-                    btns.forEach(b => b.disabled = false);
+                    // エラー時はボタン復活
+                    if(btnR) { btnR.disabled = false; btnR.innerText = "記録してもう一回"; }
+                    if(btnH) { btnH.disabled = false; btnH.innerText = "記録してタイトルへ"; }
                 });
         }
 
@@ -338,7 +357,7 @@
             saveActiveGame(); window.router('game'); 
         }
 
-        // RECORDS
+        // RECORDS (以下変更なし)
         function renderRecords() {
             app.innerHTML = `<div class="bg-gray-900 pt-16 flex flex-col h-full"><div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10"><h2 class="text-2xl font-black text-white text-center mb-1">RECORDS</h2><p class="text-xs text-gray-500 text-center mb-4">戦績リスト (平均順位順)</p><div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700"><div class="w-10 text-center"><span class="block text-xs font-bold text-white leading-none">順位</span><span class="block text-[8px] font-normal leading-none mt-1">RANK</span></div><div class="flex-1 pl-2"><span class="block text-xs font-bold text-white leading-none">名前</span><span class="block text-[8px] font-normal leading-none mt-1">NAME</span></div><div class="w-16 text-center"><span class="block text-xs font-bold text-white leading-none">平均順位</span><span class="block text-[8px] font-normal leading-none mt-1">AVG RANK</span></div><div class="w-12 text-center"><span class="block text-xs font-bold text-white leading-none">平均点</span><span class="block text-[8px] font-normal leading-none mt-1">AVG</span></div></div></div><div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container"></div></div>`;
             renderRecordsContent();
@@ -380,7 +399,6 @@
                 row.innerHTML = `<div class="flex items-center p-4 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('detail-open')"><div class="w-10 text-center text-2xl font-black ${rc}">${i+1}</div><div class="flex-1 pl-2 font-bold text-lg text-white">${p.name}</div><div class="w-16 text-center font-mono font-bold text-yellow-400">${p.avgRank.toFixed(2)}</div><div class="w-12 text-center text-xs text-gray-500 font-mono">${p.ppt.toFixed(1)}</div></div><div class="player-detail px-4 bg-gray-900 border-t border-gray-800"><div class="py-4 space-y-6"><div class="chart-container text-center"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR</h4>${genRadar(p.data)}</div><div class="bg-gray-800 p-4 rounded-lg border border-gray-700"><h4 class="text-xs text-gray-400 mb-3 font-bold border-b border-gray-700 pb-2 tracking-widest">主要指標</h4>${genLast10Stats(p.data)}</div><div class="chart-container"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">RANKING HISTORY (New Games)</h4>${genLine(p.data.last10Stats.map(x=>x.rank))}</div></div></div>`;
                 con.appendChild(row);
             });
-            // ★完全版の指標ガイドを挿入★
             con.innerHTML += `
             <div class="mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400">
                 <h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3>
