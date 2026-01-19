@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Final V15)</title>
+    <title>Mölkky Stats Pro (Final V16)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -29,9 +29,8 @@
         .btn-undo { background: #4b5563; border: 1px solid #6b7280; box-shadow: 0 3px 0 #1f2937; color: #e5e7eb; }
         .btn-undo:active { transform: translateY(2px); box-shadow: 0 1px 0 #1f2937; }
 
-        /* Setup画面のリスト (スクロール制御修正) */
+        /* Setup画面のリスト */
         .player-list-container {
-            /* 3人分くらいまではそのまま表示、それを超えるとスクロール */
             max-height: 50vh; 
             overflow-y: auto; 
         }
@@ -111,6 +110,7 @@
         let undoStack = [];
         let globalMatchHistory = [];
         let isGameActive = false;
+        let isSaving = false; // ★保存中フラグ（これ重要）
 
         // Sync
         onValue(matchesRef, (snapshot) => {
@@ -119,10 +119,15 @@
             if (document.getElementById('records-container')) renderRecordsContent();
         });
 
+        // ★★★ リアルタイム同期ロジック (大幅修正) ★★★
         onValue(activeGameRef, (snapshot) => {
             const data = snapshot.val();
             const homeBtn = document.getElementById('btn-new-game');
+            const viewGame = document.getElementById('view-game-container');
+            const resultList = document.getElementById('result-list');
+
             if (data) {
+                // データがある場合
                 isGameActive = true;
                 players = data.players || [];
                 currentIndex = data.currentIndex || 0;
@@ -131,22 +136,41 @@
                 currentMode = data.currentMode || 'snipe';
                 undoStack = data.undoStack ? JSON.parse(data.undoStack) : [];
                 
+                // ★ 試合終了判定 (クリア者がいる OR 生き残りが1人以下)
+                const isFinished = players.some(p => p.status === STATUS.CLEARED) || 
+                                   (players.filter(p => p.status === STATUS.PLAYING).length <= 1 && players.length > 1);
+
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加';
                     homeBtn.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse";
-                    homeBtn.onclick = () => window.router('game');
+                    homeBtn.onclick = () => {
+                        // 終了していれば結果画面、そうでなければゲーム画面へ
+                        if (isFinished) window.router('result');
+                        else window.router('game');
+                    };
                 }
-                if (document.getElementById('view-game-container')) renderGameContent(); 
+
+                // 現在の画面に応じて更新
+                if (viewGame && !isFinished) {
+                    renderGameContent(); // 試合中なら更新
+                } else if (viewGame && isFinished) {
+                    window.router('result'); // 試合中に終わったら結果へ
+                } else if (resultList) {
+                    // 結果画面を開いているなら何もしない（renderResultはデータ依存）
+                }
+
             } else {
+                // データがない場合 (削除された)
                 isGameActive = false;
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">🔥</span> 新しい試合';
                     homeBtn.className = "w-full py-5 bg-yellow-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-yellow-500 transition transform hover:-translate-y-1 flex items-center justify-center";
                     homeBtn.onclick = () => window.router('setup');
                 }
-                // ゲーム画面(入力中)だったら強制Home
-                if (document.getElementById('view-game-container')) {
-                    alert("ゲームが終了または中断されました。HOMEに戻ります。");
+                
+                // ★ 保存中(isSaving)なら強制送還しない！
+                if (!isSaving && (viewGame || resultList)) {
+                    alert("ゲームが中断・破棄されました。HOMEに戻ります。");
                     window.router('home');
                 }
             }
@@ -176,7 +200,7 @@
             `;
             if(isGameActive) {
                 const b = document.getElementById('btn-new-game');
-                if(b) { b.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加'; b.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse"; b.onclick = () => window.router('game'); }
+                // 既に初期化ロジックはonValueで処理済み
             }
         }
         window.resetAllData = function() { if(confirm("【警告】全データを消去します。よろしいですか？")) { remove(matchesRef); remove(activeGameRef); alert("リセットしました"); } }
@@ -202,7 +226,6 @@
         function createSelectableRow(container, name) {
             const div = document.createElement('div');
             div.className = "player-row w-full p-4 rounded-xl border border-gray-700 cursor-pointer flex items-center justify-between";
-            // 名前編集機能は削除、タップで選択のみ
             div.innerHTML = `<span class="text-lg font-bold text-white pointer-events-none">${name}</span>`;
             div.onclick = function() { this.classList.toggle('selected'); };
             container.appendChild(div);
@@ -232,6 +255,7 @@
             });
             if(players.length < 2) return alert("試合を開始するには2人以上選択してください");
             currentIndex = 0; currentMode = 'snipe';
+            isSaving = false; // フラグリセット
             saveActiveGame(); window.router('game');
         }
 
@@ -250,30 +274,26 @@
                         return `<tr class="${st}"><td class="py-3 pl-3 flex items-center"><span class="w-5 text-center mr-1">${ic}</span>${pl.name}</td><td class="text-center text-[10px] text-gray-500">${mh}</td><td class="text-right pr-4 font-mono text-xl">${pl.status===STATUS.ELIMINATED?'-':pl.score}</td></tr>`;
                     }).join('')}</tbody></table>
                 </div>
-                
-                <div class="flex-none bg-gray-900 pb-2 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-20 relative px-3">
-                    <div class="flex justify-between items-center px-6 py-3 border-b border-gray-800 mb-2">
+                <div class="flex-none bg-gray-900 pb-6 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-20 relative px-3">
+                    <div class="flex justify-between items-center px-6 py-4 border-b border-gray-800 mb-3">
                         <div class="overflow-hidden"><span class="text-[10px] text-green-400 font-bold tracking-widest block">THROWING NEXT</span><span id="current-player-name" class="text-2xl font-black text-white tracking-tight truncate block">${p.name}</span></div>
                         <div class="text-right flex items-end gap-4"><div><span class="text-[9px] text-gray-500 font-bold block">MISS</span><span class="text-xl font-black text-red-400">${p.miss}</span></div><div><span class="text-[9px] text-gray-500 font-bold block">SCORE</span><span class="text-3xl font-black text-yellow-400 leading-none">${p.score}</span></div></div>
                     </div>
-
-                    <div class="flex justify-center mb-3"><div class="bg-gray-800 p-1 rounded-xl flex w-full max-w-xs border border-gray-700">
+                    <div class="flex justify-center mb-4"><div class="bg-gray-800 p-1 rounded-xl flex w-full max-w-xs border border-gray-700">
                         <button onclick="window.switchMode('snipe')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all ${currentMode==='snipe' ? 'bg-yellow-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-700'}">🎯 Snipe</button>
                         <button onclick="window.switchMode('break')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all ${currentMode==='break' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-700'}">💥 Break</button>
                     </div></div>
-                    
                     <div id="pin-container" class="${currentMode==='snipe' ? 'mode-snipe' : 'mode-break'} flex flex-col items-center">
                         <div class="pin-row"><button class="score-btn" onclick="window.inputScore(7)">7</button><button class="score-btn" onclick="window.inputScore(9)">9</button><button class="score-btn" onclick="window.inputScore(8)">8</button></div>
                         <div class="pin-row"><button class="score-btn" onclick="window.inputScore(5)">5</button><button class="score-btn" onclick="window.inputScore(11)">11</button><button class="score-btn" onclick="window.inputScore(12)">12</button><button class="score-btn" onclick="window.inputScore(6)">6</button></div>
                         <div class="pin-row"><button class="score-btn" onclick="window.inputScore(3)">3</button><button class="score-btn" onclick="window.inputScore(10)">10</button><button class="score-btn" onclick="window.inputScore(4)">4</button></div>
                         <div class="pin-row"><button class="score-btn" onclick="window.inputScore(1)">1</button><button class="score-btn" onclick="window.inputScore(2)">2</button></div>
                     </div>
-                    
-                    <div class="mt-3 px-4 flex gap-3">
-                        <button onclick="window.inputScore(0)" class="flex-1 py-3 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button>
+                    <div class="mt-4 px-4 flex gap-3">
+                        <button onclick="window.inputScore(0)" class="flex-1 py-4 btn-miss text-white font-black rounded-xl text-lg tracking-wider active:bg-red-700 transition">MISS (0)</button>
                         <button onclick="window.undoLastThrow()" class="w-24 btn-undo rounded-xl text-lg font-bold flex items-center justify-center active:bg-gray-700 transition text-white"><span class="text-sm">◂ 1投戻る</span></button>
                     </div>
-                    <div class="mt-4 mb-2 flex justify-center"><button onclick="window.abortGame()" class="text-red-500 text-xs font-bold underline opacity-50 hover:opacity-100 px-4 py-2">⛔ ゲームを中断・破棄する</button></div>
+                    <div class="mt-8 flex justify-center"><button onclick="window.abortGame()" class="text-red-500 text-xs font-bold underline opacity-50 hover:opacity-100 px-4 py-2">⛔ ゲームを中断・破棄する</button></div>
                 </div>`;
         }
         window.switchMode = function(mode) { currentMode = mode; saveActiveGame(); }
@@ -288,8 +308,14 @@
             if(pnt===0) { p.miss++; if(p.miss>=3) { p.status=STATUS.ELIMINATED; eliminatedStack.push(p); alert(`${p.name} 失格！`); } } 
             else { p.miss=0; let next=p.score+pnt; if(next===50) { p.score=50; p.status=STATUS.CLEARED; clearOrder.push(p); alert(`${p.name} クリア！`); } else if(next>50) { p.score=25; alert("オーバー！25点に戻ります"); } else p.score=next; }
             const active = players.filter(pl=>pl.status===STATUS.PLAYING);
-            if(active.length<=1) { saveActiveGame(); setTimeout(() => window.router('result'), 300); } 
-            else { let loop=0; do { currentIndex=(currentIndex+1)%players.length; loop++; if(loop>players.length)break; } while(players[currentIndex].status!==STATUS.PLAYING); saveActiveGame(); }
+            // 終了判定 -> 状態保存のみ (画面遷移はonValueに任せる)
+            if(active.length<=1) { 
+                saveActiveGame();
+                // 300ms待たずに即時反映されるはずだが、念のため少し待機してから結果画面へ
+                // (onValueが勝手に飛ばしてくれるはず)
+            } else { 
+                let loop=0; do { currentIndex=(currentIndex+1)%players.length; loop++; if(loop>players.length)break; } while(players[currentIndex].status!==STATUS.PLAYING); saveActiveGame(); 
+            }
         }
         window.undoLastThrow = function() {
             if (undoStack.length === 0) return alert("これ以上戻れません");
@@ -316,9 +342,11 @@
             rankObj.forEach((p,i)=>{ let c=i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400"; l.innerHTML+=`<div class="flex justify-between border-b border-gray-700 py-3"><div class="${c} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`; });
         }
 
-        // ★★★ 修正箇所: 確実な保存と遷移 ★★★
+        // ★★★ 修正箇所: 確実な保存と遷移 (フラグ管理徹底) ★★★
         window.saveAndAction = function(action) {
-            // ボタンの見た目を「保存中...」に変更して無効化
+            isSaving = true; // 保存開始フラグON
+
+            // ボタン無効化・表示変更
             const btnR = document.getElementById('btn-rematch');
             const btnH = document.getElementById('btn-home');
             if(btnR) { btnR.disabled = true; btnR.innerText = "保存中..."; }
@@ -329,23 +357,18 @@
             const mData = { date: new Date().toISOString(), ranking: rankObj.map(p=>p.name), details: {} };
             rankObj.forEach(p=>mData.details[p.name]=p.stats);
 
-            // 保存処理
             push(matchesRef, mData)
                 .then(() => {
-                    // 保存成功 -> Active Game削除
-                    return remove(activeGameRef);
+                    return remove(activeGameRef); // ここでonValueが発火するがisSaving=trueなのでスルーされる
                 })
                 .then(() => {
-                    // 全て完了 -> 画面遷移
-                    if(action === 'rematch') {
-                        window.restartGame();
-                    } else {
-                        window.router('home');
-                    }
+                    isSaving = false; // 完了
+                    if(action === 'rematch') window.restartGame();
+                    else window.router('home');
                 })
                 .catch((e) => {
                     alert("保存エラー: " + e.message);
-                    // エラー時はボタン復活
+                    isSaving = false;
                     if(btnR) { btnR.disabled = false; btnR.innerText = "記録してもう一回"; }
                     if(btnH) { btnH.disabled = false; btnH.innerText = "記録してタイトルへ"; }
                 });
@@ -357,7 +380,7 @@
             saveActiveGame(); window.router('game'); 
         }
 
-        // RECORDS (以下変更なし)
+        // RECORDS
         function renderRecords() {
             app.innerHTML = `<div class="bg-gray-900 pt-16 flex flex-col h-full"><div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10"><h2 class="text-2xl font-black text-white text-center mb-1">RECORDS</h2><p class="text-xs text-gray-500 text-center mb-4">戦績リスト (平均順位順)</p><div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700"><div class="w-10 text-center"><span class="block text-xs font-bold text-white leading-none">順位</span><span class="block text-[8px] font-normal leading-none mt-1">RANK</span></div><div class="flex-1 pl-2"><span class="block text-xs font-bold text-white leading-none">名前</span><span class="block text-[8px] font-normal leading-none mt-1">NAME</span></div><div class="w-16 text-center"><span class="block text-xs font-bold text-white leading-none">平均順位</span><span class="block text-[8px] font-normal leading-none mt-1">AVG RANK</span></div><div class="w-12 text-center"><span class="block text-xs font-bold text-white leading-none">平均点</span><span class="block text-[8px] font-normal leading-none mt-1">AVG</span></div></div></div><div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container"></div></div>`;
             renderRecordsContent();
