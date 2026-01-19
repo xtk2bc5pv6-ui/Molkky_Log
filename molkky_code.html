@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Final V10)</title>
+    <title>Mölkky Stats Pro (Final V11)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -13,6 +13,8 @@
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        
+        /* 試合画面ボタン */
         .score-btn { width: 54px; height: 54px; flex-shrink: 0; font-size: 1.5rem; font-weight: 900; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: transform 0.1s; position: relative; box-shadow: 0 4px 0 rgba(0,0,0,0.3); margin: 0 auto; }
         .score-btn:active { transform: scale(0.92) translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3); }
         .pin-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 8px; }
@@ -22,13 +24,24 @@
         .btn-miss:active { transform: translateY(2px); box-shadow: 0 1px 0 #991b1b; }
         .btn-undo { background: #4b5563; border: 1px solid #6b7280; box-shadow: 0 3px 0 #1f2937; color: #e5e7eb; }
         .btn-undo:active { transform: translateY(2px); box-shadow: 0 1px 0 #1f2937; }
+        
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
         .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
         .chart-label-group { cursor: pointer; }
+        .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
+        .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
+        .chart-label-group:active .chart-value-text, .chart-label-group:hover .chart-value-text { display: block; }
+        
         .drag-handle { cursor: grab; touch-action: none; color: #6b7280; }
         .drag-handle:active { cursor: grabbing; color: #fff; }
         .sortable-ghost { opacity: 0.4; background: #374151; }
+
+        /* ★ メンバー選択用のスタイル ★ */
+        .player-row { transition: all 0.2s; border: 2px solid transparent; opacity: 0.5; filter: grayscale(80%); }
+        .player-row.selected { border-color: #22c55e; background-color: #1f2937; opacity: 1; filter: grayscale(0%); }
+        .check-icon { display: none; }
+        .player-row.selected .check-icon { display: block; color: #22c55e; }
     </style>
 </head>
 <body class="max-w-md mx-auto relative shadow-2xl">
@@ -45,13 +58,13 @@
 
         // ★★★ Firebase設定 (ここを書き換えてください) ★★★
         const firebaseConfig = {
-            apiKey: "AIzaSyAkxCP38Q9t4ggTn3ippGqp1ood-yfkjls",
-            authDomain: "molkkystatus.firebaseapp.com",
-            projectId: "molkkystatus",
-            storageBucket: "molkkystatus.firebasestorage.app",
-            messagingSenderId: "666672171664",
-            appId: "1:666672171664:web:2b23bab0c3ff77943e6615",
-            measurementId: "G-Q1TBBHQ90Z"
+            apiKey: "AIzaSy...", 
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:..."
         };
 
         const firebaseApp = initializeApp(firebaseConfig);
@@ -66,7 +79,6 @@
             "森岡凜太郎": { games: 39, wins: 16, throws: 390, misses: 109, points: 1560 }
         };
 
-        // --- 今日の4試合 ---
         const TODAY_MATCHES = [
             { ranking: ["石井山拓登", "森岡凜太郎", "吉谷悠"] },
             { ranking: ["森岡凜太郎", "吉谷悠", "石井山拓登"] },
@@ -146,11 +158,12 @@
         }
         window.resetAllData = function() { if(confirm("【警告】全データを消去します。よろしいですか？")) { remove(matchesRef); remove(activeGameRef); alert("リセットしました"); } }
 
+        // --- SETUP画面 (メンバー選択機能追加) ---
         function renderSetup() {
             app.innerHTML = `
                 <div class="p-4 bg-gray-900 h-full flex flex-col">
                     <div class="pt-12 pb-4 text-center"><h2 class="text-xl font-bold text-white tracking-widest border-b-2 border-yellow-600 inline-block pb-1">PLAYER ENTRY</h2></div>
-                    <p class="text-xs text-center text-gray-500 mb-2">≡ を長押しして順番を入れ替え</p>
+                    <p class="text-xs text-center text-gray-400 mb-2 font-bold">タップして参加者を選択 (緑枠が参加)</p>
                     <div class="flex-grow overflow-y-auto space-y-3 px-2 custom-scrollbar" id="player-input-list"></div>
                     <div class="mt-4 space-y-3">
                         <button onclick="window.addPlayerInput()" class="w-full py-3 bg-gray-800 text-gray-400 rounded-xl text-sm border-dashed border-2 border-gray-700 font-bold hover:bg-gray-750">+ メンバー追加</button>
@@ -158,23 +171,67 @@
                     </div>
                 </div>
             `;
-            const list = document.getElementById('player-input-list'); list.innerHTML = '';
-            const initialNames = players.length > 0 ? players.map(p=>p.name) : ['吉谷悠', '石井山拓登', '森岡凜太郎'];
+            const list = document.getElementById('player-input-list'); 
+            list.innerHTML = '';
+            
+            // デフォルトの候補者（前回プレイした人など）
+            const initialNames = players.length > 0 ? players.map(p=>p.name) : Object.keys(LEGACY_STATS).length > 0 ? Object.keys(LEGACY_STATS) : ['吉谷悠', '石井山拓登', '森岡凜太郎'];
+            
             initialNames.forEach(n => createInputRow(list, n));
             new Sortable(list, { handle: '.drag-handle', animation: 150, ghostClass: 'sortable-ghost' });
         }
+
         function createInputRow(container, nameValue) {
             const div = document.createElement('div');
-            div.className = "flex items-center space-x-2 mb-2 bg-gray-800 p-2 rounded-xl border border-gray-700";
-            div.innerHTML = `<div class="drag-handle p-3 cursor-grab text-gray-500 hover:text-white"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg></div><input type="text" value="${nameValue}" class="flex-1 bg-transparent text-white font-bold p-2 outline-none" readonly onclick="this.removeAttribute('readonly');this.focus();" onblur="this.setAttribute('readonly','readonly')">`;
+            // デフォルトで「選択済み」にする (class="selected")
+            div.className = "player-row selected flex items-center space-x-2 mb-2 bg-gray-800 p-2 rounded-xl border border-gray-700 cursor-pointer";
+            
+            // タップで選択状態をトグルする関数
+            div.onclick = function(e) {
+                // input要素そのものをクリックした時はトグルしない（名前編集のため）
+                if (e.target.tagName === 'INPUT') return;
+                this.classList.toggle('selected');
+            };
+
+            div.innerHTML = `
+                <div class="drag-handle p-3 cursor-grab text-gray-500 hover:text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </div>
+                <input type="text" value="${nameValue}" class="flex-1 bg-transparent text-white font-bold p-2 outline-none" 
+                    onfocus="this.parentElement.classList.add('selected')"
+                    onblur="if(this.value.trim()==='') this.parentElement.classList.remove('selected')">
+                <div class="check-icon pr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+            `;
             container.appendChild(div);
         }
-        window.addPlayerInput = function() { createInputRow(document.getElementById('player-input-list'), "Player " + (document.getElementById('player-input-list').children.length + 1)); }
+
+        window.addPlayerInput = function() { 
+            createInputRow(document.getElementById('player-input-list'), "Player " + (document.getElementById('player-input-list').children.length + 1)); 
+        }
+
         window.startGame = function() {
-            const inputs = document.querySelectorAll('#player-input-list input');
+            const rows = document.querySelectorAll('.player-row');
             players = []; clearOrder = []; eliminatedStack = []; undoStack = [];
-            inputs.forEach(i => { if(i.value.trim() !== "") players.push({ name: i.value, score: 0, miss: 0, status: STATUS.PLAYING, stats: { snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0 } }); });
-            if(players.length < 1) return alert("プレイヤーがいません");
+            
+            rows.forEach(row => {
+                // 「selected」クラスがついているものだけ参加
+                if (row.classList.contains('selected')) {
+                    const name = row.querySelector('input').value.trim();
+                    if (name !== "") {
+                        players.push({ name: name, score: 0, miss: 0, status: STATUS.PLAYING, stats: { snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0 } });
+                    }
+                }
+            });
+
+            // 2人以上ならOK
+            if(players.length < 2) return alert("対戦するには2人以上のプレイヤーを選択してください");
+            
             currentIndex = 0; currentMode = 'snipe';
             saveActiveGame(); window.router('game');
         }
@@ -299,14 +356,12 @@
             con.innerHTML += `<div class="mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400"><h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3><table class="w-full text-left border-collapse"><tbody class="divide-y divide-gray-700"><tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点 (PPT)。<br>5.0以上で上級者。</td></tr><tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率。(全データ)</td></tr><tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。<br><span class="text-gray-500">※新規データのみで算出</span></td></tr><tr><th class="py-2 text-white font-bold pr-2">命中率</th><td class="py-2">ミスをしなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr></tbody></table></div>`;
         }
 
-        // ★★★ 修正箇所: 計算不能(NaN)対策と0代入 ★★★
         function genRadar(d) {
             const s = d.newStats; 
-            const winRate = Math.round((d.wins/d.totalGames)*100); // 勝率は全体
+            const winRate = Math.round((d.wins/d.totalGames)*100);
             const hasNew = s.games > 0;
-            const hasThrows = s.throws > 0; // 投げた記録があるか
+            const hasThrows = s.throws > 0; 
 
-            // 以下、新規データかつ投球記録がある場合のみ計算、なければ0
             const acc = (hasNew && hasThrows) ? Math.round(((s.throws - s.misses)/s.throws)*100) : 0;
             const snipe = (hasNew && (s.snipes+s.breaks)>0) ? Math.round((s.snipes/(s.snipes+s.breaks))*100) : 0;
             const clutch = (hasNew && (s.clutchHits+s.clutchMisses)>0) ? Math.round((s.clutchHits/(s.clutchHits+s.clutchMisses))*100) : 0;
@@ -331,14 +386,11 @@
             const winRate = Math.round((d.wins/d.totalGames)*100);
             const avgRank = (d.rankSum / d.totalGames).toFixed(2);
             const avgScore = d.stats.throws > 0 ? (d.stats.totalPoints/d.stats.throws).toFixed(1) : "-";
-            
             const ns = d.newStats;
             const hasNew = ns.games > 0;
-            // 命中率(新規): 投球データがない場合は "-" にする
             const acc = (hasNew && ns.throws > 0) ? Math.round(((ns.throws - ns.misses) / ns.throws)*100) : "-";
             const snipeRate = "-";
             const lastAvoid = hasNew ? Math.round(((ns.games - ns.lastPlaceCount) / ns.games)*100) : "-";
-            
             return `<div class="grid grid-cols-3 gap-2 text-center"><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">${acc==='-'?'':'%'}</span></div><span class="stat-label">命中率 (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${snipeRate}</span><span class="${stUnit}">${snipeRate==='-'?'':'%'}</span></div><span class="stat-label">狙撃率 (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div></div>`;
         }
 
