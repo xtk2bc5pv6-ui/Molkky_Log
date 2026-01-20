@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Final V16)</title>
+    <title>Mölkky Stats Pro (Final V17)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -57,6 +57,10 @@
         /* チャート数値強調 */
         .chart-label-group { cursor: pointer; }
         .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
+        .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
+        .chart-label-group:active .chart-value-text, .chart-label-group:hover .chart-value-text { display: block; }
+        
+        /* ドラッグハンドル */
         .drag-handle { cursor: grab; touch-action: none; color: #6b7280; }
         .drag-handle:active { cursor: grabbing; color: #fff; }
         .sortable-ghost { opacity: 0.4; background: #374151; }
@@ -76,13 +80,13 @@
 
         // ★★★ Firebase設定 (ここを書き換えてください) ★★★
         const firebaseConfig = {
-            apiKey: "AIzaSyAkxCP38Q9t4ggTn3ippGqp1ood-yfkjls",
-            authDomain: "molkkystatus.firebaseapp.com",
-            projectId: "molkkystatus",
-            storageBucket: "molkkystatus.firebasestorage.app",
-            messagingSenderId: "666672171664",
-            appId: "1:666672171664:web:2b23bab0c3ff77943e6615",
-            measurementId: "G-Q1TBBHQ90Z"
+            apiKey: "AIzaSy...", 
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:..."
         };
 
         const firebaseApp = initializeApp(firebaseConfig);
@@ -110,7 +114,7 @@
         let undoStack = [];
         let globalMatchHistory = [];
         let isGameActive = false;
-        let isSaving = false; // ★保存中フラグ（これ重要）
+        let isSaving = false;
 
         // Sync
         onValue(matchesRef, (snapshot) => {
@@ -119,7 +123,7 @@
             if (document.getElementById('records-container')) renderRecordsContent();
         });
 
-        // ★★★ リアルタイム同期ロジック (大幅修正) ★★★
+        // リアルタイム同期ロジック
         onValue(activeGameRef, (snapshot) => {
             const data = snapshot.val();
             const homeBtn = document.getElementById('btn-new-game');
@@ -127,7 +131,6 @@
             const resultList = document.getElementById('result-list');
 
             if (data) {
-                // データがある場合
                 isGameActive = true;
                 players = data.players || [];
                 currentIndex = data.currentIndex || 0;
@@ -136,7 +139,6 @@
                 currentMode = data.currentMode || 'snipe';
                 undoStack = data.undoStack ? JSON.parse(data.undoStack) : [];
                 
-                // ★ 試合終了判定 (クリア者がいる OR 生き残りが1人以下)
                 const isFinished = players.some(p => p.status === STATUS.CLEARED) || 
                                    (players.filter(p => p.status === STATUS.PLAYING).length <= 1 && players.length > 1);
 
@@ -144,23 +146,20 @@
                     homeBtn.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加';
                     homeBtn.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse";
                     homeBtn.onclick = () => {
-                        // 終了していれば結果画面、そうでなければゲーム画面へ
                         if (isFinished) window.router('result');
                         else window.router('game');
                     };
                 }
 
-                // 現在の画面に応じて更新
                 if (viewGame && !isFinished) {
-                    renderGameContent(); // 試合中なら更新
+                    renderGameContent(); 
                 } else if (viewGame && isFinished) {
-                    window.router('result'); // 試合中に終わったら結果へ
+                    window.router('result'); 
                 } else if (resultList) {
-                    // 結果画面を開いているなら何もしない（renderResultはデータ依存）
+                    // 結果画面
                 }
 
             } else {
-                // データがない場合 (削除された)
                 isGameActive = false;
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">🔥</span> 新しい試合';
@@ -168,7 +167,6 @@
                     homeBtn.onclick = () => window.router('setup');
                 }
                 
-                // ★ 保存中(isSaving)なら強制送還しない！
                 if (!isSaving && (viewGame || resultList)) {
                     alert("ゲームが中断・破棄されました。HOMEに戻ります。");
                     window.router('home');
@@ -200,17 +198,16 @@
             `;
             if(isGameActive) {
                 const b = document.getElementById('btn-new-game');
-                // 既に初期化ロジックはonValueで処理済み
             }
         }
         window.resetAllData = function() { if(confirm("【警告】全データを消去します。よろしいですか？")) { remove(matchesRef); remove(activeGameRef); alert("リセットしました"); } }
 
-        // --- SETUP画面 ---
+        // --- SETUP画面 (ドラッグ入れ替え対応) ---
         function renderSetup() {
             app.innerHTML = `
                 <div class="p-4 bg-gray-900 h-full flex flex-col">
                     <div class="pt-12 pb-4 text-center"><h2 class="text-xl font-bold text-white tracking-widest border-b-2 border-yellow-600 inline-block pb-1">PLAYER ENTRY</h2></div>
-                    <p class="text-xs text-center text-gray-400 mb-2 font-bold">タップして緑色(参加)にしてください</p>
+                    <p class="text-xs text-center text-gray-400 mb-2 font-bold">ドラッグで順番入替 / タップで参加(緑)</p>
                     <div class="flex-grow custom-scrollbar player-list-container space-y-2 px-2" id="player-input-list"></div>
                     <div class="mt-4 space-y-3 pb-6">
                         <button onclick="window.addNewMember()" class="w-full py-3 bg-gray-800 text-gray-400 rounded-xl text-sm border-dashed border-2 border-gray-700 font-bold hover:bg-gray-750 hover:text-white transition">+ メンバー追加</button>
@@ -221,13 +218,41 @@
             const list = document.getElementById('player-input-list'); 
             list.innerHTML = '';
             allPlayerNames.forEach(name => createSelectableRow(list, name));
+
+            // ★ SortableJSの適用 (ドラッグ入れ替え) ★
+            new Sortable(list, {
+                handle: '.drag-handle', // ハンドル部分でのみドラッグ可能
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: function() {
+                    // 並び替えた結果を内部配列にも反映させる
+                    const newOrder = [];
+                    document.querySelectorAll('.player-row span').forEach(span => {
+                        newOrder.push(span.innerText);
+                    });
+                    allPlayerNames = newOrder;
+                }
+            });
         }
 
         function createSelectableRow(container, name) {
             const div = document.createElement('div');
-            div.className = "player-row w-full p-4 rounded-xl border border-gray-700 cursor-pointer flex items-center justify-between";
-            div.innerHTML = `<span class="text-lg font-bold text-white pointer-events-none">${name}</span>`;
-            div.onclick = function() { this.classList.toggle('selected'); };
+            div.className = "player-row w-full p-2 pr-4 rounded-xl border border-gray-700 cursor-pointer flex items-center";
+            // 名前左側にハンドル(≡)を追加
+            div.innerHTML = `
+                <div class="drag-handle p-3 mr-2 cursor-grab text-gray-500 hover:text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </div>
+                <span class="text-lg font-bold text-white pointer-events-none flex-1">${name}</span>
+            `;
+            // 行全体クリックで選択切り替え (ドラッグハンドル以外)
+            div.onclick = function(e) { 
+                // ハンドルをクリックした時は選択切り替えしないようにする(ドラッグと被るため)
+                if(e.target.closest('.drag-handle')) return;
+                this.classList.toggle('selected'); 
+            };
             container.appendChild(div);
         }
 
@@ -247,15 +272,17 @@
         window.startGame = function() {
             const rows = document.querySelectorAll('.player-row');
             players = []; clearOrder = []; eliminatedStack = []; undoStack = [];
+            
+            // DOMの順番通りに取得する＝ドラッグ後の順番になる
             rows.forEach(row => {
                 if (row.classList.contains('selected')) {
-                    const name = row.innerText;
+                    const name = row.querySelector('span').innerText;
                     players.push({ name: name, score: 0, miss: 0, status: STATUS.PLAYING, stats: { snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0 } });
                 }
             });
             if(players.length < 2) return alert("試合を開始するには2人以上選択してください");
             currentIndex = 0; currentMode = 'snipe';
-            isSaving = false; // フラグリセット
+            isSaving = false; 
             saveActiveGame(); window.router('game');
         }
 
@@ -308,11 +335,8 @@
             if(pnt===0) { p.miss++; if(p.miss>=3) { p.status=STATUS.ELIMINATED; eliminatedStack.push(p); alert(`${p.name} 失格！`); } } 
             else { p.miss=0; let next=p.score+pnt; if(next===50) { p.score=50; p.status=STATUS.CLEARED; clearOrder.push(p); alert(`${p.name} クリア！`); } else if(next>50) { p.score=25; alert("オーバー！25点に戻ります"); } else p.score=next; }
             const active = players.filter(pl=>pl.status===STATUS.PLAYING);
-            // 終了判定 -> 状態保存のみ (画面遷移はonValueに任せる)
             if(active.length<=1) { 
                 saveActiveGame();
-                // 300ms待たずに即時反映されるはずだが、念のため少し待機してから結果画面へ
-                // (onValueが勝手に飛ばしてくれるはず)
             } else { 
                 let loop=0; do { currentIndex=(currentIndex+1)%players.length; loop++; if(loop>players.length)break; } while(players[currentIndex].status!==STATUS.PLAYING); saveActiveGame(); 
             }
@@ -342,11 +366,8 @@
             rankObj.forEach((p,i)=>{ let c=i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400"; l.innerHTML+=`<div class="flex justify-between border-b border-gray-700 py-3"><div class="${c} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`; });
         }
 
-        // ★★★ 修正箇所: 確実な保存と遷移 (フラグ管理徹底) ★★★
         window.saveAndAction = function(action) {
-            isSaving = true; // 保存開始フラグON
-
-            // ボタン無効化・表示変更
+            isSaving = true;
             const btnR = document.getElementById('btn-rematch');
             const btnH = document.getElementById('btn-home');
             if(btnR) { btnR.disabled = true; btnR.innerText = "保存中..."; }
@@ -359,10 +380,10 @@
 
             push(matchesRef, mData)
                 .then(() => {
-                    return remove(activeGameRef); // ここでonValueが発火するがisSaving=trueなのでスルーされる
+                    return remove(activeGameRef);
                 })
                 .then(() => {
-                    isSaving = false; // 完了
+                    isSaving = false;
                     if(action === 'rematch') window.restartGame();
                     else window.router('home');
                 })
