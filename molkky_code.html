@@ -476,17 +476,38 @@
             return `<svg viewBox="-20 -20 340 340" class="w-full"><circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/><circle cx="150" cy="150" r="45" fill="none" stroke="#374151" stroke-dasharray="2,2"/>${lines}<polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>${lbls}</svg>`;
         }
         
-        function genLast10Stats(d) {
-            const stVal = "text-3xl font-black"; const stUnit = "text-xs font-bold ml-1 text-gray-400"; const box = "bg-gray-800 p-2 rounded flex flex-col justify-center items-center h-20 border border-gray-700";
+                function genLast10Stats(d) {
+            const stVal = "text-3xl font-black"; 
+            const stUnit = "text-xs font-bold ml-1 text-gray-400"; 
+            const box = "bg-gray-800 p-2 rounded flex flex-col justify-center items-center h-20 border border-gray-700";
+            
             const winRate = Math.round((d.wins/d.totalGames)*100);
             const avgRank = (d.rankSum / d.totalGames).toFixed(2);
             const avgScore = d.stats.throws > 0 ? (d.stats.totalPoints/d.stats.throws).toFixed(1) : "-";
-            const ns = d.newStats; const hasNew = ns.games > 0;
+            
+            const ns = d.newStats; 
+            const hasNew = ns.games > 0;
+            
+            // 命中率 (新規)
             const acc = (hasNew && ns.throws > 0) ? Math.round(((ns.throws - ns.misses) / ns.throws)*100) : "-";
-            const snipeRate = "-";
+            
+            // ★修正箇所: 狙撃率の計算 (スナイプ / (スナイプ+ブレイク))
+            const totalHits = ns.snipes + ns.breaks;
+            const snipeRate = (hasNew && totalHits > 0) ? Math.round((ns.snipes / totalHits)*100) : "-";
+            
             const lastAvoid = hasNew ? Math.round(((ns.games - ns.lastPlaceCount) / ns.games)*100) : "-";
-            return `<div class="grid grid-cols-3 gap-2 text-center"><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">${acc==='-'?'':'%'}</span></div><span class="stat-label">命中率 (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${snipeRate}</span><span class="${stUnit}">${snipeRate==='-'?'':'%'}</span></div><span class="stat-label">狙撃率 (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div></div>`;
+            
+            return `
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div>
+                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div>
+                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div>
+                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">${acc==='-'?'':'%'}</span></div><span class="stat-label">命中率 (新規)</span></div>
+                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${snipeRate}</span><span class="${stUnit}">${snipeRate==='-'?'':'%'}</span></div><span class="stat-label">狙撃率 (新規)</span></div>
+                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div>
+                </div>`;
         }
+
 
         function genLine(ranks) {
             if (!ranks || ranks.length === 0) return '<div class="text-xs text-gray-600 text-center py-4">新規データなし</div>';
@@ -498,3 +519,4 @@
     </script>
 </body>
 </html>
+
