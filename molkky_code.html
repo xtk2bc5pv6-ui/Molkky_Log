@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Final V17)</title>
+    <title>Mölkky Stats Pro (Final V18)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -53,8 +53,6 @@
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
         .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
-        
-        /* チャート数値強調 */
         .chart-label-group { cursor: pointer; }
         .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
         .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
@@ -80,13 +78,13 @@
 
         // ★★★ Firebase設定 (ここを書き換えてください) ★★★
         const firebaseConfig = {
-            apiKey: "AIzaSy...", 
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:..."
+            apiKey: "AIzaSyAkxCP38Q9t4ggTn3ippGqp1ood-yfkjls",
+            authDomain: "molkkystatus.firebaseapp.com",
+            projectId: "molkkystatus",
+            storageBucket: "molkkystatus.firebasestorage.app",
+            messagingSenderId: "666672171664",
+            appId: "1:666672171664:web:2b23bab0c3ff77943e6615",
+            measurementId: "G-Q1TBBHQ90Z"
         };
 
         const firebaseApp = initializeApp(firebaseConfig);
@@ -123,7 +121,7 @@
             if (document.getElementById('records-container')) renderRecordsContent();
         });
 
-        // リアルタイム同期ロジック
+        // ★★★ リアルタイム同期 & 状態監視 ★★★
         onValue(activeGameRef, (snapshot) => {
             const data = snapshot.val();
             const homeBtn = document.getElementById('btn-new-game');
@@ -139,13 +137,15 @@
                 currentMode = data.currentMode || 'snipe';
                 undoStack = data.undoStack ? JSON.parse(data.undoStack) : [];
                 
-                const isFinished = players.some(p => p.status === STATUS.CLEARED) || 
-                                   (players.filter(p => p.status === STATUS.PLAYING).length <= 1 && players.length > 1);
+                // 終了判定: プレイ中の人数が1人以下になったら終了 (クリア者+脱落者で残り1人)
+                const activeCount = players.filter(p => p.status === STATUS.PLAYING).length;
+                const isFinished = (players.length > 1 && activeCount <= 1);
 
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加';
                     homeBtn.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse";
                     homeBtn.onclick = () => {
+                        // 既に終わっているゲームに参加したら結果画面へ飛ばす
                         if (isFinished) window.router('result');
                         else window.router('game');
                     };
@@ -154,12 +154,12 @@
                 if (viewGame && !isFinished) {
                     renderGameContent(); 
                 } else if (viewGame && isFinished) {
+                    // プレイ画面を開いていて、かつ終了したなら結果画面へ
                     window.router('result'); 
-                } else if (resultList) {
-                    // 結果画面
                 }
 
             } else {
+                // データがない(削除された)場合
                 isGameActive = false;
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">🔥</span> 新しい試合';
@@ -167,6 +167,7 @@
                     homeBtn.onclick = () => window.router('setup');
                 }
                 
+                // 保存中以外でデータが消えたらHOMEへ戻す
                 if (!isSaving && (viewGame || resultList)) {
                     alert("ゲームが中断・破棄されました。HOMEに戻ります。");
                     window.router('home');
@@ -196,13 +197,14 @@
                     <button onclick="window.resetAllData()" class="mt-8 text-xs text-red-500 underline font-bold">⚠️ 全データ消去 (管理者用)</button>
                 </div>
             `;
+            // 初期化時にボタン状態をチェック
             if(isGameActive) {
-                const b = document.getElementById('btn-new-game');
+                // onValueで書き換わるのでここでは何もしなくてよいが、チラつき防止で書いておく
             }
         }
         window.resetAllData = function() { if(confirm("【警告】全データを消去します。よろしいですか？")) { remove(matchesRef); remove(activeGameRef); alert("リセットしました"); } }
 
-        // --- SETUP画面 (ドラッグ入れ替え対応) ---
+        // --- SETUP画面 ---
         function renderSetup() {
             app.innerHTML = `
                 <div class="p-4 bg-gray-900 h-full flex flex-col">
@@ -219,13 +221,11 @@
             list.innerHTML = '';
             allPlayerNames.forEach(name => createSelectableRow(list, name));
 
-            // ★ SortableJSの適用 (ドラッグ入れ替え) ★
             new Sortable(list, {
-                handle: '.drag-handle', // ハンドル部分でのみドラッグ可能
+                handle: '.drag-handle',
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 onEnd: function() {
-                    // 並び替えた結果を内部配列にも反映させる
                     const newOrder = [];
                     document.querySelectorAll('.player-row span').forEach(span => {
                         newOrder.push(span.innerText);
@@ -238,7 +238,6 @@
         function createSelectableRow(container, name) {
             const div = document.createElement('div');
             div.className = "player-row w-full p-2 pr-4 rounded-xl border border-gray-700 cursor-pointer flex items-center";
-            // 名前左側にハンドル(≡)を追加
             div.innerHTML = `
                 <div class="drag-handle p-3 mr-2 cursor-grab text-gray-500 hover:text-white">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -247,9 +246,7 @@
                 </div>
                 <span class="text-lg font-bold text-white pointer-events-none flex-1">${name}</span>
             `;
-            // 行全体クリックで選択切り替え (ドラッグハンドル以外)
             div.onclick = function(e) { 
-                // ハンドルをクリックした時は選択切り替えしないようにする(ドラッグと被るため)
                 if(e.target.closest('.drag-handle')) return;
                 this.classList.toggle('selected'); 
             };
@@ -273,7 +270,6 @@
             const rows = document.querySelectorAll('.player-row');
             players = []; clearOrder = []; eliminatedStack = []; undoStack = [];
             
-            // DOMの順番通りに取得する＝ドラッグ後の順番になる
             rows.forEach(row => {
                 if (row.classList.contains('selected')) {
                     const name = row.querySelector('span').innerText;
@@ -366,6 +362,7 @@
             rankObj.forEach((p,i)=>{ let c=i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400"; l.innerHTML+=`<div class="flex justify-between border-b border-gray-700 py-3"><div class="${c} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`; });
         }
 
+        // ★★★ 修正箇所: 確実な保存と遷移 ★★★
         window.saveAndAction = function(action) {
             isSaving = true;
             const btnR = document.getElementById('btn-rematch');
@@ -378,6 +375,7 @@
             const mData = { date: new Date().toISOString(), ranking: rankObj.map(p=>p.name), details: {} };
             rankObj.forEach(p=>mData.details[p.name]=p.stats);
 
+            // push(保存)完了 → remove(削除) → 遷移
             push(matchesRef, mData)
                 .then(() => {
                     return remove(activeGameRef);
@@ -388,6 +386,7 @@
                     else window.router('home');
                 })
                 .catch((e) => {
+                    // エラー時はアラートを出してボタンを復活
                     alert("保存エラー: " + e.message);
                     isSaving = false;
                     if(btnR) { btnR.disabled = false; btnR.innerText = "記録してもう一回"; }
