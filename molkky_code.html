@@ -449,26 +449,26 @@
                     ps.rankSum += (idx+1); ps.totalGames++; if(idx===0) ps.wins++;
                     // globalMatchHistory.forEach の中の if(m.details && m.details[name]) ブロック内を以下に修正
                     if(m.details && m.details[name]) {
-                    const d = m.details[name];
-                    ps.stats.misses += d.misses || 0; 
-                    ps.stats.totalPoints += d.totalPoints || 0; 
-                    ps.stats.throws += d.throws || 0;
+                        const d = m.details[name];
+                        ps.stats.misses += d.misses || 0; 
+                        ps.stats.totalPoints += d.totalPoints || 0; 
+                        ps.stats.throws += d.throws || 0;
                 
-                    ns.games++; 
-                    if(idx === 0) ns.wins++; 
-                    if(idx === m.ranking.length - 1) ns.lastPlaceCount++;
+                        ns.games++; 
+                        if(idx === 0) ns.wins++; 
+                        if(idx === m.ranking.length - 1) ns.lastPlaceCount++;
                 
-                    ns.snipes += d.snipes || 0; 
-                    ns.breaks += d.breaks || 0; 
-                    ns.misses += d.misses || 0; 
+                        ns.snipes += d.snipes || 0; 
+                        ns.breaks += d.breaks || 0; 
+                        ns.misses += d.misses || 0; 
                 
-                    // ★修正箇所: 勝負強さのデータを合算
-                    ns.clutchHits += d.clutchHits || 0; 
-                    ns.clutchMisses += d.clutchMisses || 0; 
+                        // ★修正箇所: 勝負強さのデータを合算
+                        ns.clutchHits += d.clutchHits || 0; 
+                        ns.clutchMisses += d.clutchMisses || 0; 
                 
-                    ns.totalPoints += d.totalPoints || 0; 
-                    ns.throws += d.throws || 0;
-                    ps.last10Stats.push({ rank: idx + 1 });
+                        ns.totalPoints += d.totalPoints || 0; 
+                        ns.throws += d.throws || 0;
+                        ps.last10Stats.push({ rank: idx + 1 });
                     }
                 });
             });
@@ -557,5 +557,6 @@
     </script>
 </body>
 </html>
+
 
 
