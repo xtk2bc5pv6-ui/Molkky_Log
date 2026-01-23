@@ -326,15 +326,37 @@
         window.inputScore = function(pnt) {
             undoStack.push(JSON.parse(JSON.stringify({ players, currentIndex, clearOrder, eliminatedStack, currentMode })));
             const p = players[currentIndex];
-            p.stats.throws++; p.stats.totalPoints += pnt;
-            if(pnt===0) { p.stats.misses++; } else { if(currentMode==='snipe') p.stats.snipes++; else p.stats.breaks++; }
-            if(pnt===0) { p.miss++; if(p.miss>=3) { p.status=STATUS.ELIMINATED; eliminatedStack.push(p); alert(`${p.name} 失格！`); } } 
-            else { p.miss=0; let next=p.score+pnt; if(next===50) { p.score=50; p.status=STATUS.CLEARED; clearOrder.push(p); alert(`${p.name} クリア！`); } else if(next>50) { p.score=25; alert("オーバー！25点に戻ります"); } else p.score=next; }
-            const active = players.filter(pl=>pl.status===STATUS.PLAYING);
-            if(active.length<=1) { 
+            const prevScore = p.score; // 投げる前のスコアを記録
+            
+            p.stats.throws++; 
+            p.stats.totalPoints += pnt;
+
+            if(pnt === 0) { 
+                p.stats.misses++; 
+                // ★修正箇所: 38点以上の時にミスした場合
+                if(prevScore >= 38) p.stats.clutchMisses++;
+            } else { 
+                if(currentMode === 'snipe') p.stats.snipes++; else p.stats.breaks++; 
+                // ★修正箇所: 38点以上の時に得点した場合
+                if(prevScore >= 38) p.stats.clutchHits++;
+            }
+
+            if(pnt === 0) { 
+                p.miss++; 
+                if(p.miss >= 3) { p.status = STATUS.ELIMINATED; eliminatedStack.push(p); alert(`${p.name} 失格！`); } 
+            } else { 
+                p.miss = 0; 
+                let next = p.score + pnt; 
+                if(next === 50) { p.score = 50; p.status = STATUS.CLEARED; clearOrder.push(p); alert(`${p.name} クリア！`); } 
+                else if(next > 50) { p.score = 25; alert("オーバー！25点に戻ります"); } 
+                else p.score = next; 
+            }
+
+            const active = players.filter(pl => pl.status === STATUS.PLAYING);
+            if(active.length <= 1) { 
                 saveActiveGame();
             } else { 
-                let loop=0; do { currentIndex=(currentIndex+1)%players.length; loop++; if(loop>players.length)break; } while(players[currentIndex].status!==STATUS.PLAYING); saveActiveGame(); 
+                let loop = 0; do { currentIndex = (currentIndex + 1) % players.length; loop++; if(loop > players.length) break; } while(players[currentIndex].status !== STATUS.PLAYING); saveActiveGame(); 
             }
         }
         window.undoLastThrow = function() {
@@ -425,12 +447,28 @@
                     if(!pStats[name]) pStats[name] = { rankSum:0, wins:0, totalGames:0, stats:{throws:0, misses:0, totalPoints:0, snipes:0, breaks:0, clutchHits:0, clutchMisses:0}, newStats:{games:0, wins:0, lastPlaceCount:0, snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0}, last10Stats:[] };
                     let ps = pStats[name], ns = ps.newStats;
                     ps.rankSum += (idx+1); ps.totalGames++; if(idx===0) ps.wins++;
+                    // globalMatchHistory.forEach の中の if(m.details && m.details[name]) ブロック内を以下に修正
                     if(m.details && m.details[name]) {
-                        const d = m.details[name];
-                        ps.stats.misses+=d.misses||0; ps.stats.totalPoints+=d.totalPoints||0; ps.stats.throws+=d.throws||0;
-                        ns.games++; if(idx===0) ns.wins++; if(idx===m.ranking.length-1) ns.lastPlaceCount++;
-                        ns.snipes+=d.snipes||0; ns.breaks+=d.breaks||0; ns.misses+=d.misses||0; ns.clutchHits+=d.clutchHits||0; ns.clutchMisses+=d.clutchMisses||0; ns.totalPoints+=d.totalPoints||0; ns.throws+=d.throws||0;
-                        ps.last10Stats.push({ rank: idx+1 });
+                    const d = m.details[name];
+                    ps.stats.misses += d.misses || 0; 
+                    ps.stats.totalPoints += d.totalPoints || 0; 
+                    ps.stats.throws += d.throws || 0;
+                
+                    ns.games++; 
+                    if(idx === 0) ns.wins++; 
+                    if(idx === m.ranking.length - 1) ns.lastPlaceCount++;
+                
+                    ns.snipes += d.snipes || 0; 
+                    ns.breaks += d.breaks || 0; 
+                    ns.misses += d.misses || 0; 
+                
+                    // ★修正箇所: 勝負強さのデータを合算
+                    ns.clutchHits += d.clutchHits || 0; 
+                    ns.clutchMisses += d.clutchMisses || 0; 
+                
+                    ns.totalPoints += d.totalPoints || 0; 
+                    ns.throws += d.throws || 0;
+                    ps.last10Stats.push({ rank: idx + 1 });
                     }
                 });
             });
@@ -519,4 +557,5 @@
     </script>
 </body>
 </html>
+
 
