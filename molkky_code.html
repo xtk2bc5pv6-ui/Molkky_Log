@@ -76,7 +76,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // ★★★ Firebase設定 (ここを書き換えてください) ★★★
+        // ★★★ Firebase設定 ★★★
         const firebaseConfig = {
             apiKey: "AIzaSyAkxCP38Q9t4ggTn3ippGqp1ood-yfkjls",
             authDomain: "molkkystatus.firebaseapp.com",
@@ -121,7 +121,7 @@
             if (document.getElementById('records-container')) renderRecordsContent();
         });
 
-        // ★★★ リアルタイム同期 & 状態監視 ★★★
+        // リアルタイム同期 & 状態監視
         onValue(activeGameRef, (snapshot) => {
             const data = snapshot.val();
             const homeBtn = document.getElementById('btn-new-game');
@@ -137,7 +137,6 @@
                 currentMode = data.currentMode || 'snipe';
                 undoStack = data.undoStack ? JSON.parse(data.undoStack) : [];
                 
-                // 終了判定: プレイ中の人数が1人以下になったら終了 (クリア者+脱落者で残り1人)
                 const activeCount = players.filter(p => p.status === STATUS.PLAYING).length;
                 const isFinished = (players.length > 1 && activeCount <= 1);
 
@@ -145,7 +144,6 @@
                     homeBtn.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加';
                     homeBtn.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse";
                     homeBtn.onclick = () => {
-                        // 既に終わっているゲームに参加したら結果画面へ飛ばす
                         if (isFinished) window.router('result');
                         else window.router('game');
                     };
@@ -154,20 +152,15 @@
                 if (viewGame && !isFinished) {
                     renderGameContent(); 
                 } else if (viewGame && isFinished) {
-                    // プレイ画面を開いていて、かつ終了したなら結果画面へ
                     window.router('result'); 
                 }
-
             } else {
-                // データがない(削除された)場合
                 isGameActive = false;
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">🔥</span> 新しい試合';
                     homeBtn.className = "w-full py-5 bg-yellow-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-yellow-500 transition transform hover:-translate-y-1 flex items-center justify-center";
                     homeBtn.onclick = () => window.router('setup');
                 }
-                
-                // 保存中以外でデータが消えたらHOMEへ戻す
                 if (!isSaving && (viewGame || resultList)) {
                     alert("ゲームが中断・破棄されました。HOMEに戻ります。");
                     window.router('home');
@@ -197,14 +190,9 @@
                     <button onclick="window.resetAllData()" class="mt-8 text-xs text-red-500 underline font-bold">⚠️ 全データ消去 (管理者用)</button>
                 </div>
             `;
-            // 初期化時にボタン状態をチェック
-            if(isGameActive) {
-                // onValueで書き換わるのでここでは何もしなくてよいが、チラつき防止で書いておく
-            }
         }
         window.resetAllData = function() { if(confirm("【警告】全データを消去します。よろしいですか？")) { remove(matchesRef); remove(activeGameRef); alert("リセットしました"); } }
 
-        // --- SETUP画面 ---
         function renderSetup() {
             app.innerHTML = `
                 <div class="p-4 bg-gray-900 h-full flex flex-col">
@@ -269,7 +257,6 @@
         window.startGame = function() {
             const rows = document.querySelectorAll('.player-row');
             players = []; clearOrder = []; eliminatedStack = []; undoStack = [];
-            
             rows.forEach(row => {
                 if (row.classList.contains('selected')) {
                     const name = row.querySelector('span').innerText;
@@ -326,37 +313,26 @@
         window.inputScore = function(pnt) {
             undoStack.push(JSON.parse(JSON.stringify({ players, currentIndex, clearOrder, eliminatedStack, currentMode })));
             const p = players[currentIndex];
-            const prevScore = p.score; // 投げる前のスコアを記録
+            const prevScore = p.score;
             
-            p.stats.throws++; 
-            p.stats.totalPoints += pnt;
-
-            if(pnt === 0) { 
+            p.stats.throws++; p.stats.totalPoints += pnt;
+            if(pnt===0) { 
                 p.stats.misses++; 
-                // ★修正箇所: 38点以上の時にミスした場合
                 if(prevScore >= 38) p.stats.clutchMisses++;
             } else { 
-                if(currentMode === 'snipe') p.stats.snipes++; else p.stats.breaks++; 
-                // ★修正箇所: 38点以上の時に得点した場合
+                if(currentMode==='snipe') p.stats.snipes++; else p.stats.breaks++; 
                 if(prevScore >= 38) p.stats.clutchHits++;
             }
-
-            if(pnt === 0) { 
-                p.miss++; 
-                if(p.miss >= 3) { p.status = STATUS.ELIMINATED; eliminatedStack.push(p); alert(`${p.name} 失格！`); } 
+            if(pnt===0) { 
+                p.miss++; if(p.miss>=3) { p.status=STATUS.ELIMINATED; eliminatedStack.push(p); alert(`${p.name} 失格！`); } 
             } else { 
-                p.miss = 0; 
-                let next = p.score + pnt; 
-                if(next === 50) { p.score = 50; p.status = STATUS.CLEARED; clearOrder.push(p); alert(`${p.name} クリア！`); } 
-                else if(next > 50) { p.score = 25; alert("オーバー！25点に戻ります"); } 
-                else p.score = next; 
+                p.miss=0; let next=p.score+pnt; if(next===50) { p.score=50; p.status=STATUS.CLEARED; clearOrder.push(p); alert(`${p.name} クリア！`); } else if(next>50) { p.score=25; alert("オーバー！25点に戻ります"); } else p.score=next; 
             }
-
-            const active = players.filter(pl => pl.status === STATUS.PLAYING);
-            if(active.length <= 1) { 
+            const active = players.filter(pl=>pl.status===STATUS.PLAYING);
+            if(active.length<=1) { 
                 saveActiveGame();
             } else { 
-                let loop = 0; do { currentIndex = (currentIndex + 1) % players.length; loop++; if(loop > players.length) break; } while(players[currentIndex].status !== STATUS.PLAYING); saveActiveGame(); 
+                let loop=0; do { currentIndex=(currentIndex+1)%players.length; loop++; if(loop>players.length)break; } while(players[currentIndex].status!==STATUS.PLAYING); saveActiveGame(); 
             }
         }
         window.undoLastThrow = function() {
@@ -366,7 +342,7 @@
             saveActiveGame();
         }
 
-        // --- RESULT & SAVE ---
+        // --- RESULT ---
         function renderResult() {
             const surv = players.filter(p=>p.status===STATUS.PLAYING);
             const rankObj = [...clearOrder, ...surv, ...eliminatedStack.reverse()];
@@ -384,7 +360,6 @@
             rankObj.forEach((p,i)=>{ let c=i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400"; l.innerHTML+=`<div class="flex justify-between border-b border-gray-700 py-3"><div class="${c} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`; });
         }
 
-        // ★★★ 修正箇所: 確実な保存と遷移 ★★★
         window.saveAndAction = function(action) {
             isSaving = true;
             const btnR = document.getElementById('btn-rematch');
@@ -397,18 +372,14 @@
             const mData = { date: new Date().toISOString(), ranking: rankObj.map(p=>p.name), details: {} };
             rankObj.forEach(p=>mData.details[p.name]=p.stats);
 
-            // push(保存)完了 → remove(削除) → 遷移
             push(matchesRef, mData)
-                .then(() => {
-                    return remove(activeGameRef);
-                })
+                .then(() => { return remove(activeGameRef); })
                 .then(() => {
                     isSaving = false;
                     if(action === 'rematch') window.restartGame();
                     else window.router('home');
                 })
                 .catch((e) => {
-                    // エラー時はアラートを出してボタンを復活
                     alert("保存エラー: " + e.message);
                     isSaving = false;
                     if(btnR) { btnR.disabled = false; btnR.innerText = "記録してもう一回"; }
@@ -427,6 +398,7 @@
             app.innerHTML = `<div class="bg-gray-900 pt-16 flex flex-col h-full"><div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10"><h2 class="text-2xl font-black text-white text-center mb-1">RECORDS</h2><p class="text-xs text-gray-500 text-center mb-4">戦績リスト (平均順位順)</p><div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700"><div class="w-10 text-center"><span class="block text-xs font-bold text-white leading-none">順位</span><span class="block text-[8px] font-normal leading-none mt-1">RANK</span></div><div class="flex-1 pl-2"><span class="block text-xs font-bold text-white leading-none">名前</span><span class="block text-[8px] font-normal leading-none mt-1">NAME</span></div><div class="w-16 text-center"><span class="block text-xs font-bold text-white leading-none">平均順位</span><span class="block text-[8px] font-normal leading-none mt-1">AVG RANK</span></div><div class="w-12 text-center"><span class="block text-xs font-bold text-white leading-none">平均点</span><span class="block text-[8px] font-normal leading-none mt-1">AVG</span></div></div></div><div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container"></div></div>`;
             renderRecordsContent();
         }
+
         function renderRecordsContent() {
             const con = document.getElementById('records-container'); if(!con) return; con.innerHTML = '';
             let pStats = {};
@@ -447,28 +419,14 @@
                     if(!pStats[name]) pStats[name] = { rankSum:0, wins:0, totalGames:0, stats:{throws:0, misses:0, totalPoints:0, snipes:0, breaks:0, clutchHits:0, clutchMisses:0}, newStats:{games:0, wins:0, lastPlaceCount:0, snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0}, last10Stats:[] };
                     let ps = pStats[name], ns = ps.newStats;
                     ps.rankSum += (idx+1); ps.totalGames++; if(idx===0) ps.wins++;
-                    // globalMatchHistory.forEach の中の if(m.details && m.details[name]) ブロック内を以下に修正
                     if(m.details && m.details[name]) {
                         const d = m.details[name];
-                        ps.stats.misses += d.misses || 0; 
-                        ps.stats.totalPoints += d.totalPoints || 0; 
-                        ps.stats.throws += d.throws || 0;
-                
-                        ns.games++; 
-                        if(idx === 0) ns.wins++; 
-                        if(idx === m.ranking.length - 1) ns.lastPlaceCount++;
-                
-                        ns.snipes += d.snipes || 0; 
-                        ns.breaks += d.breaks || 0; 
-                        ns.misses += d.misses || 0; 
-                
-                        // ★修正箇所: 勝負強さのデータを合算
-                        ns.clutchHits += d.clutchHits || 0; 
-                        ns.clutchMisses += d.clutchMisses || 0; 
-                
-                        ns.totalPoints += d.totalPoints || 0; 
-                        ns.throws += d.throws || 0;
-                        ps.last10Stats.push({ rank: idx + 1 });
+                        ps.stats.misses+=d.misses||0; ps.stats.totalPoints+=d.totalPoints||0; ps.stats.throws+=d.throws||0;
+                        ns.games++; if(idx===0) ns.wins++; if(idx===m.ranking.length-1) ns.lastPlaceCount++;
+                        ns.snipes+=d.snipes||0; ns.breaks+=d.breaks||0; ns.misses+=d.misses||0;
+                        ns.clutchHits += d.clutchHits || 0; ns.clutchMisses += d.clutchMisses || 0;
+                        ns.totalPoints+=d.totalPoints||0; ns.throws+=d.throws||0;
+                        ps.last10Stats.push({ rank: idx+1 });
                     }
                 });
             });
@@ -488,8 +446,8 @@
                         <tr><th class="py-2 text-yellow-400 font-bold pr-2 whitespace-nowrap">平均点 (AVG)</th><td class="py-2">1投あたりの平均得点 (PPT)。<br>5.0以上で上級者。<br>(全データ合算)</td></tr>
                         <tr><th class="py-2 text-white font-bold pr-2">勝率</th><td class="py-2">1位を獲得した確率。<br>(全データ合算)</td></tr>
                         <tr><th class="py-2 text-white font-bold pr-2">命中率</th><td class="py-2">ミス(0点)をしなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
-                        <tr><th class="py-2 text-white font-bold pr-2">狙撃率</th><td class="py-2">1本倒し(Snipe)で得点した割合。<br><span class="text-gray-500">※現在は"-"(データなし)</span></td></tr>
-                        <tr><th class="py-2 text-white font-bold pr-2">勝負強さ</th><td class="py-2">37点以上での得点成功率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">狙撃率</th><td class="py-2">1本倒し(Snipe)で得点した割合。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
+                        <tr><th class="py-2 text-white font-bold pr-2">勝負強さ</th><td class="py-2">38点以上での得点成功率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
                         <tr><th class="py-2 text-white font-bold pr-2">得点力</th><td class="py-2">平均得点の高さを0-100で評価。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
                         <tr><th class="py-2 text-white font-bold pr-2">ラス回避</th><td class="py-2">最下位にならなかった確率。<br><span class="text-gray-500">※新規データのみ</span></td></tr>
                     </tbody>
@@ -504,7 +462,8 @@
             const hasNew = s.games > 0;
             const hasThrows = s.throws > 0; 
             const acc = (hasNew && hasThrows) ? Math.round(((s.throws - s.misses)/s.throws)*100) : 0;
-            const snipe = (hasNew && (s.snipes+s.breaks)>0) ? Math.round((s.snipes/(s.snipes+s.breaks))*100) : 0;
+            const totalHits = s.snipes + s.breaks;
+            const snipe = (hasNew && totalHits > 0) ? Math.round((s.snipes / totalHits)*100) : 0;
             const clutch = (hasNew && (s.clutchHits+s.clutchMisses)>0) ? Math.round((s.clutchHits/(s.clutchHits+s.clutchMisses))*100) : 0;
             const power = (hasNew && hasThrows) ? Math.min(100, Math.round(((s.totalPoints/s.throws || 0)/7) * 100)) : 0;
             const avoidLast = hasNew ? Math.round(((s.games - s.lastPlaceCount) / s.games) * 100) : 0;
@@ -514,38 +473,20 @@
             return `<svg viewBox="-20 -20 340 340" class="w-full"><circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/><circle cx="150" cy="150" r="45" fill="none" stroke="#374151" stroke-dasharray="2,2"/>${lines}<polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>${lbls}</svg>`;
         }
         
-                function genLast10Stats(d) {
-            const stVal = "text-3xl font-black"; 
-            const stUnit = "text-xs font-bold ml-1 text-gray-400"; 
-            const box = "bg-gray-800 p-2 rounded flex flex-col justify-center items-center h-20 border border-gray-700";
-            
+        function genLast10Stats(d) {
+            const stVal = "text-3xl font-black"; const stUnit = "text-xs font-bold ml-1 text-gray-400"; const box = "bg-gray-800 p-2 rounded flex flex-col justify-center items-center h-20 border border-gray-700";
             const winRate = Math.round((d.wins/d.totalGames)*100);
             const avgRank = (d.rankSum / d.totalGames).toFixed(2);
             const avgScore = d.stats.throws > 0 ? (d.stats.totalPoints/d.stats.throws).toFixed(1) : "-";
-            
-            const ns = d.newStats; 
-            const hasNew = ns.games > 0;
-            
-            // 命中率 (新規)
+            const ns = d.newStats; const hasNew = ns.games > 0;
             const acc = (hasNew && ns.throws > 0) ? Math.round(((ns.throws - ns.misses) / ns.throws)*100) : "-";
             
-            // ★修正箇所: 狙撃率の計算 (スナイプ / (スナイプ+ブレイク))
-            const totalHits = ns.snipes + ns.breaks;
-            const snipeRate = (hasNew && totalHits > 0) ? Math.round((ns.snipes / totalHits)*100) : "-";
-            
+            const totalClutch = ns.clutchHits + ns.clutchMisses;
+            const clutchRate = (hasNew && totalClutch > 0) ? Math.round((ns.clutchHits / totalClutch)*100) : "-";
             const lastAvoid = hasNew ? Math.round(((ns.games - ns.lastPlaceCount) / ns.games)*100) : "-";
             
-            return `
-                <div class="grid grid-cols-3 gap-2 text-center">
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">${acc==='-'?'':'%'}</span></div><span class="stat-label">命中率 (新規)</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${snipeRate}</span><span class="${stUnit}">${snipeRate==='-'?'':'%'}</span></div><span class="stat-label">狙撃率 (新規)</span></div>
-                    <div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div>
-                </div>`;
+            return `<div class="grid grid-cols-3 gap-2 text-center"><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">${acc==='-'?'':'%'}</span></div><span class="stat-label">命中率 (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${clutchRate}</span><span class="${stUnit}">${clutchRate==='-'?'':'%'}</span></div><span class="stat-label">勝負強さ (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div></div>`;
         }
-
 
         function genLine(ranks) {
             if (!ranks || ranks.length === 0) return '<div class="text-xs text-gray-600 text-center py-4">新規データなし</div>';
@@ -557,6 +498,3 @@
     </script>
 </body>
 </html>
-
-
-
