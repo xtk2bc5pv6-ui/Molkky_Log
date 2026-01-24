@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mölkky Stats Pro (Final V18)</title>
+    <title>Mölkky Stats Pro (Final V20)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -12,7 +12,6 @@
         body { background-color: #111827; color: white; font-family: 'Roboto', 'Noto Sans JP', sans-serif; touch-action: manipulation; height: 100dvh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; user-select: none; -webkit-user-select: none; }
         #app-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
         
-        /* スクロールバー */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
@@ -30,29 +29,16 @@
         .btn-undo:active { transform: translateY(2px); box-shadow: 0 1px 0 #1f2937; }
 
         /* Setup画面のリスト */
-        .player-list-container {
-            max-height: 50vh; 
-            overflow-y: auto; 
-        }
-        .player-row { 
-            transition: all 0.2s; 
-            border: 2px solid transparent; 
-            background-color: #1f2937;
-            opacity: 0.4; 
-            filter: grayscale(100%);
-        }
-        .player-row.selected { 
-            border-color: #22c55e; 
-            background-color: #1f2937; 
-            opacity: 1; 
-            filter: grayscale(0%);
-            box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
-        }
+        .player-list-container { max-height: 50vh; overflow-y: auto; }
+        .player-row { transition: all 0.2s; border: 2px solid transparent; background-color: #1f2937; opacity: 0.4; filter: grayscale(100%); }
+        .player-row.selected { border-color: #22c55e; background-color: #1f2937; opacity: 1; filter: grayscale(0%); box-shadow: 0 0 10px rgba(34, 197, 94, 0.2); }
 
         /* 分析画面 */
         .player-detail { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background: #1f2937; }
         .detail-open { max-height: 1200px; } 
         .stat-label { font-size: 0.6rem; color: #9ca3af; display: block; line-height: 1; margin-top: 3px; font-weight: bold; font-family: 'Noto Sans JP', sans-serif; }
+        
+        /* チャート数値強調 */
         .chart-label-group { cursor: pointer; }
         .chart-value-text { font-weight: 900; fill: #facc15; font-size: 14px; text-anchor: middle; display: none; }
         .chart-label-group:active .chart-text, .chart-label-group:hover .chart-text { display: none; }
@@ -80,6 +66,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyAkxCP38Q9t4ggTn3ippGqp1ood-yfkjls",
             authDomain: "molkkystatus.firebaseapp.com",
+            databaseURL: "https://molkkystatus-default-rtdb.firebaseio.com",
             projectId: "molkkystatus",
             storageBucket: "molkkystatus.firebasestorage.app",
             messagingSenderId: "666672171664",
@@ -92,7 +79,6 @@
         const matchesRef = ref(db, 'matches');
         const activeGameRef = ref(db, 'active_game');
 
-        // --- 初期データ ---
         const LEGACY_STATS = {
             "吉谷悠": { games: 70, wins: 26, throws: 700, misses: 231, points: 2800 },
             "石井山拓登": { games: 65, wins: 27, throws: 650, misses: 149, points: 2600 },
@@ -106,22 +92,16 @@
         ];
 
         let allPlayerNames = Object.keys(LEGACY_STATS);
-
         const STATUS = { PLAYING: 'playing', CLEARED: 'cleared', ELIMINATED: 'eliminated' };
         let players = [], currentIndex = 0, clearOrder = [], eliminatedStack = [], currentMode = 'snipe';
-        let undoStack = [];
-        let globalMatchHistory = [];
-        let isGameActive = false;
-        let isSaving = false;
+        let undoStack = [], globalMatchHistory = [], isGameActive = false, isSaving = false;
 
-        // Sync
         onValue(matchesRef, (snapshot) => {
             const data = snapshot.val();
             globalMatchHistory = data ? Object.values(data) : [];
             if (document.getElementById('records-container')) renderRecordsContent();
         });
 
-        // リアルタイム同期 & 状態監視
         onValue(activeGameRef, (snapshot) => {
             const data = snapshot.val();
             const homeBtn = document.getElementById('btn-new-game');
@@ -143,17 +123,10 @@
                 if (homeBtn) {
                     homeBtn.innerHTML = '<span class="mr-3">⚠️</span> 開催中のゲームに参加';
                     homeBtn.className = "w-full py-5 bg-orange-600 text-white rounded-2xl font-bold text-2xl shadow-lg hover:bg-orange-500 transition transform hover:-translate-y-1 flex items-center justify-center animate-pulse";
-                    homeBtn.onclick = () => {
-                        if (isFinished) window.router('result');
-                        else window.router('game');
-                    };
+                    homeBtn.onclick = () => isFinished ? window.router('result') : window.router('game');
                 }
-
-                if (viewGame && !isFinished) {
-                    renderGameContent(); 
-                } else if (viewGame && isFinished) {
-                    window.router('result'); 
-                }
+                if (viewGame && !isFinished) renderGameContent(); 
+                else if (viewGame && isFinished) window.router('result'); 
             } else {
                 isGameActive = false;
                 if (homeBtn) {
@@ -215,9 +188,7 @@
                 ghostClass: 'sortable-ghost',
                 onEnd: function() {
                     const newOrder = [];
-                    document.querySelectorAll('.player-row span').forEach(span => {
-                        newOrder.push(span.innerText);
-                    });
+                    document.querySelectorAll('.player-row span').forEach(span => newOrder.push(span.innerText));
                     allPlayerNames = newOrder;
                 }
             });
@@ -226,31 +197,17 @@
         function createSelectableRow(container, name) {
             const div = document.createElement('div');
             div.className = "player-row w-full p-2 pr-4 rounded-xl border border-gray-700 cursor-pointer flex items-center";
-            div.innerHTML = `
-                <div class="drag-handle p-3 mr-2 cursor-grab text-gray-500 hover:text-white">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </div>
-                <span class="text-lg font-bold text-white pointer-events-none flex-1">${name}</span>
-            `;
-            div.onclick = function(e) { 
-                if(e.target.closest('.drag-handle')) return;
-                this.classList.toggle('selected'); 
-            };
+            div.innerHTML = `<div class="drag-handle p-3 mr-2 cursor-grab text-gray-500 hover:text-white"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg></div><span class="text-lg font-bold text-white pointer-events-none flex-1">${name}</span>`;
+            div.onclick = function(e) { if(e.target.closest('.drag-handle')) return; this.classList.toggle('selected'); };
             container.appendChild(div);
         }
 
         window.addNewMember = function() {
-            const newName = prompt("新しいメンバーの名前を入力してください");
+            const newName = prompt("名前を入力してください");
             if(newName && newName.trim() !== "") {
                 const n = newName.trim();
-                if(!allPlayerNames.includes(n)) {
-                    allPlayerNames.push(n);
-                    renderSetup();
-                } else {
-                    alert("その名前は既にリストにあります");
-                }
+                if(!allPlayerNames.includes(n)) { allPlayerNames.push(n); renderSetup(); }
+                else alert("既にリストにあります");
             }
         }
 
@@ -260,13 +217,11 @@
             rows.forEach(row => {
                 if (row.classList.contains('selected')) {
                     const name = row.querySelector('span').innerText;
-                    players.push({ name: name, score: 0, miss: 0, status: STATUS.PLAYING, stats: { snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0 } });
+                    players.push({ name: name, score: 0, miss: 0, status: STATUS.PLAYING, stats: { snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0, history: [] } });
                 }
             });
             if(players.length < 2) return alert("試合を開始するには2人以上選択してください");
-            currentIndex = 0; currentMode = 'snipe';
-            isSaving = false; 
-            saveActiveGame(); window.router('game');
+            currentIndex = 0; currentMode = 'snipe'; isSaving = false; saveActiveGame(); window.router('game');
         }
 
         // GAME
@@ -314,14 +269,17 @@
             undoStack.push(JSON.parse(JSON.stringify({ players, currentIndex, clearOrder, eliminatedStack, currentMode })));
             const p = players[currentIndex];
             const prevScore = p.score;
-            
             p.stats.throws++; p.stats.totalPoints += pnt;
+            
+            if(!p.stats.history) p.stats.history = [];
+            p.stats.history.push(pnt);
+
             if(pnt===0) { 
                 p.stats.misses++; 
-                if(prevScore >= 38) p.stats.clutchMisses++;
+                if(prevScore >= 38) p.stats.clutchMisses++; 
             } else { 
                 if(currentMode==='snipe') p.stats.snipes++; else p.stats.breaks++; 
-                if(prevScore >= 38) p.stats.clutchHits++;
+                if(prevScore >= 38) p.stats.clutchHits++; 
             }
             if(pnt===0) { 
                 p.miss++; if(p.miss>=3) { p.status=STATUS.ELIMINATED; eliminatedStack.push(p); alert(`${p.name} 失格！`); } 
@@ -329,73 +287,47 @@
                 p.miss=0; let next=p.score+pnt; if(next===50) { p.score=50; p.status=STATUS.CLEARED; clearOrder.push(p); alert(`${p.name} クリア！`); } else if(next>50) { p.score=25; alert("オーバー！25点に戻ります"); } else p.score=next; 
             }
             const active = players.filter(pl=>pl.status===STATUS.PLAYING);
-            if(active.length<=1) { 
-                saveActiveGame();
-            } else { 
-                let loop=0; do { currentIndex=(currentIndex+1)%players.length; loop++; if(loop>players.length)break; } while(players[currentIndex].status!==STATUS.PLAYING); saveActiveGame(); 
-            }
+            if(active.length<=1) saveActiveGame(); 
+            else { let loop=0; do { currentIndex=(currentIndex+1)%players.length; loop++; } while(players[currentIndex].status!==STATUS.PLAYING); saveActiveGame(); }
         }
         window.undoLastThrow = function() {
-            if (undoStack.length === 0) return alert("これ以上戻れません");
+            if (undoStack.length === 0) return;
             const prev = undoStack.pop();
             players = prev.players; currentIndex = prev.currentIndex; clearOrder = prev.clearOrder; eliminatedStack = prev.eliminatedStack; currentMode = prev.currentMode;
             saveActiveGame();
         }
 
-        // --- RESULT ---
+        // --- RESULT & SAVE ---
         function renderResult() {
             const surv = players.filter(p=>p.status===STATUS.PLAYING);
             const rankObj = [...clearOrder, ...surv, ...eliminatedStack.reverse()];
-            app.innerHTML = `
-                <div class="view-section active-view justify-center items-center p-6 text-center bg-gray-900">
-                    <h2 class="text-4xl text-yellow-400 font-black mb-6 tracking-tighter drop-shadow-md">GAME SET!</h2>
-                    <div class="w-full bg-gray-800 rounded-2xl p-4 mb-6 text-left space-y-2 shadow-lg border border-gray-700 overflow-y-auto max-h-[50vh]" id="result-list"></div>
-                    <div class="w-full space-y-3">
-                        <button id="btn-rematch" onclick="window.saveAndAction('rematch')" class="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-500 transition shadow-lg flex items-center justify-center">記録してもう一回</button>
-                        <button id="btn-home" onclick="window.saveAndAction('home')" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition border border-gray-600">記録してタイトルへ</button>
-                    </div>
-                </div>
-            `;
+            app.innerHTML = `<div class="p-6 text-center bg-gray-900 h-full flex flex-col justify-center"><h2 class="text-4xl text-yellow-400 font-black mb-6">GAME SET!</h2><div class="w-full bg-gray-800 rounded-2xl p-4 mb-6 text-left space-y-2 overflow-y-auto max-h-[50vh]" id="result-list"></div><div class="w-full space-y-3"><button id="btn-rematch" onclick="window.saveAndAction('rematch')" class="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-500 shadow-lg">記録してもう一回</button><button id="btn-home" onclick="window.saveAndAction('home')" class="w-full py-4 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 border border-gray-600">記録してタイトルへ</button></div></div>`;
             const l = document.getElementById('result-list');
             rankObj.forEach((p,i)=>{ let c=i===0?"text-yellow-400":i===1?"text-gray-300":"text-orange-400"; l.innerHTML+=`<div class="flex justify-between border-b border-gray-700 py-3"><div class="${c} font-bold text-xl w-12">${i+1}th</div><div class="text-white font-bold">${p.name}</div><div class="text-gray-400 font-mono">${p.score}pt</div></div>`; });
         }
 
         window.saveAndAction = function(action) {
             isSaving = true;
-            const btnR = document.getElementById('btn-rematch');
-            const btnH = document.getElementById('btn-home');
-            if(btnR) { btnR.disabled = true; btnR.innerText = "保存中..."; }
-            if(btnH) { btnH.disabled = true; btnH.innerText = "保存中..."; }
-
+            document.getElementById('btn-rematch').disabled = true; document.getElementById('btn-home').disabled = true;
             const surv = players.filter(p=>p.status===STATUS.PLAYING);
             const rankObj = [...clearOrder, ...surv, ...eliminatedStack.reverse()];
             const mData = { date: new Date().toISOString(), ranking: rankObj.map(p=>p.name), details: {} };
             rankObj.forEach(p=>mData.details[p.name]=p.stats);
-
-            push(matchesRef, mData)
-                .then(() => { return remove(activeGameRef); })
-                .then(() => {
-                    isSaving = false;
-                    if(action === 'rematch') window.restartGame();
-                    else window.router('home');
-                })
-                .catch((e) => {
-                    alert("保存エラー: " + e.message);
-                    isSaving = false;
-                    if(btnR) { btnR.disabled = false; btnR.innerText = "記録してもう一回"; }
-                    if(btnH) { btnH.disabled = false; btnH.innerText = "記録してタイトルへ"; }
-                });
+            push(matchesRef, mData).then(() => remove(activeGameRef)).then(() => {
+                isSaving = false;
+                if(action === 'rematch') window.restartGame(); else window.router('home');
+            }).catch((e) => { alert("保存エラー: " + e.message); isSaving = false; });
         }
 
         window.restartGame = function() { 
             currentIndex=0; clearOrder=[]; eliminatedStack=[]; undoStack=[]; 
-            players.forEach(p=>{ p.score=0; p.miss=0; p.status=STATUS.PLAYING; p.stats={ snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0 }; }); 
+            players.forEach(p=>{ p.score=0; p.miss=0; p.status=STATUS.PLAYING; p.stats={ snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0, history: [] }; }); 
             saveActiveGame(); window.router('game'); 
         }
 
         // RECORDS
         function renderRecords() {
-            app.innerHTML = `<div class="bg-gray-900 pt-16 flex flex-col h-full"><div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10"><h2 class="text-2xl font-black text-white text-center mb-1">RECORDS</h2><p class="text-xs text-gray-500 text-center mb-4">戦績リスト (平均順位順)</p><div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700"><div class="w-10 text-center"><span class="block text-xs font-bold text-white leading-none">順位</span><span class="block text-[8px] font-normal leading-none mt-1">RANK</span></div><div class="flex-1 pl-2"><span class="block text-xs font-bold text-white leading-none">名前</span><span class="block text-[8px] font-normal leading-none mt-1">NAME</span></div><div class="w-16 text-center"><span class="block text-xs font-bold text-white leading-none">平均順位</span><span class="block text-[8px] font-normal leading-none mt-1">AVG RANK</span></div><div class="w-12 text-center"><span class="block text-xs font-bold text-white leading-none">平均点</span><span class="block text-[8px] font-normal leading-none mt-1">AVG</span></div></div></div><div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container"></div></div>`;
+            app.innerHTML = `<div class="bg-gray-900 pt-16 flex flex-col h-full"><div class="px-4 pb-4 bg-gray-900 border-b border-gray-800 z-10"><h2 class="text-2xl font-black text-white text-center mb-1">RECORDS</h2><p class="text-xs text-gray-500 text-center mb-4">戦績リスト (平均順位順)</p><div class="flex items-end px-2 pb-2 text-gray-400 border-b border-gray-700"><div class="w-10 text-center"><span class="block text-xs font-bold text-white leading-none">順位</span></div><div class="flex-1 pl-2"><span class="block text-xs font-bold text-white leading-none">名前</span></div><div class="w-16 text-center"><span class="block text-xs font-bold text-white leading-none">平均順位</span></div><div class="w-12 text-center"><span class="block text-xs font-bold text-white leading-none">平均点</span></div></div></div><div class="flex-grow overflow-y-auto custom-scrollbar px-4 pb-10" id="records-container"></div></div>`;
             renderRecordsContent();
         }
 
@@ -403,41 +335,32 @@
             const con = document.getElementById('records-container'); if(!con) return; con.innerHTML = '';
             let pStats = {};
             for(const [name, d] of Object.entries(LEGACY_STATS)) {
-                const nonWin = d.games - d.wins;
-                pStats[name] = { rankSum: (d.wins*1)+(nonWin*2.5), wins: d.wins, totalGames: d.games, stats: { throws: d.throws, misses: d.misses, totalPoints: d.points, snipes:0, breaks:0, clutchHits:0, clutchMisses:0 }, newStats: { games:0, wins:0, lastPlaceCount:0, snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0 }, last10Stats: [] };
+                pStats[name] = { rankSum: (d.wins*1)+((d.games-d.wins)*2.5), wins: d.wins, totalGames: d.games, stats: { throws: d.throws, misses: d.misses, totalPoints: d.points, snipes:0, breaks:0, clutchHits:0, clutchMisses:0 }, newStats: { games:0, wins:0, lastPlaceCount:0, snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0 }, last10Stats: [] };
             }
-            TODAY_MATCHES.forEach((m, idx) => {
-                m.ranking.forEach((name, rIdx) => {
-                    if(!pStats[name]) return;
-                    let ps = pStats[name], ns = ps.newStats;
-                    ps.last10Stats.push({ rank: rIdx+1 });
-                    ns.games++; if(rIdx===0) ns.wins++; if(rIdx===m.ranking.length-1) ns.lastPlaceCount++;
-                });
-            });
-            globalMatchHistory.forEach(m => {
-                m.ranking.forEach((name, idx) => {
-                    if(!pStats[name]) pStats[name] = { rankSum:0, wins:0, totalGames:0, stats:{throws:0, misses:0, totalPoints:0, snipes:0, breaks:0, clutchHits:0, clutchMisses:0}, newStats:{games:0, wins:0, lastPlaceCount:0, snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0}, last10Stats:[] };
-                    let ps = pStats[name], ns = ps.newStats;
-                    ps.rankSum += (idx+1); ps.totalGames++; if(idx===0) ps.wins++;
-                    if(m.details && m.details[name]) {
-                        const d = m.details[name];
-                        ps.stats.misses+=d.misses||0; ps.stats.totalPoints+=d.totalPoints||0; ps.stats.throws+=d.throws||0;
-                        ns.games++; if(idx===0) ns.wins++; if(idx===m.ranking.length-1) ns.lastPlaceCount++;
-                        ns.snipes+=d.snipes||0; ns.breaks+=d.breaks||0; ns.misses+=d.misses||0;
-                        ns.clutchHits += d.clutchHits || 0; ns.clutchMisses += d.clutchMisses || 0;
-                        ns.totalPoints+=d.totalPoints||0; ns.throws+=d.throws||0;
-                        ps.last10Stats.push({ rank: idx+1 });
-                    }
-                });
-            });
+            TODAY_MATCHES.forEach(m => m.ranking.forEach((name, rIdx) => { if(pStats[name]) { pStats[name].last10Stats.push({rank:rIdx+1}); pStats[name].newStats.games++; if(rIdx===0) pStats[name].newStats.wins++; } }));
+            globalMatchHistory.forEach(m => m.ranking.forEach((name, idx) => {
+                if(!pStats[name]) pStats[name] = { rankSum:0, wins:0, totalGames:0, stats:{throws:0, misses:0, totalPoints:0, snipes:0, breaks:0, clutchHits:0, clutchMisses:0}, newStats:{games:0, wins:0, lastPlaceCount:0, snipes:0, breaks:0, misses:0, clutchHits:0, clutchMisses:0, totalPoints:0, throws:0}, last10Stats:[] };
+                let ps = pStats[name], ns = ps.newStats;
+                ps.rankSum += (idx+1); ps.totalGames++; if(idx===0) ps.wins++;
+                if(m.details && m.details[name]) {
+                    const d = m.details[name];
+                    ps.stats.misses += d.misses || 0; ps.stats.totalPoints += d.totalPoints || 0; ps.stats.throws += d.throws || 0;
+                    ns.games++; if(idx===0) ns.wins++; if(idx===m.ranking.length-1) ns.lastPlaceCount++;
+                    ns.snipes+=d.snipes||0; ns.breaks+=d.breaks||0; ns.misses+=d.misses||0;
+                    ns.clutchHits += d.clutchHits || 0; ns.clutchMisses += d.clutchMisses || 0;
+                    ns.totalPoints += d.totalPoints || 0; ns.throws += d.throws || 0;
+                    ps.last10Stats.push({ rank: idx+1 });
+                }
+            }));
             let lb = Object.keys(pStats).map(n => { const d=pStats[n]; return { name:n, avgRank:d.totalGames>0?d.rankSum/d.totalGames:999, ppt:d.stats.throws>0?d.stats.totalPoints/d.stats.throws:0, data:d }; }).sort((a,b) => a.avgRank - b.avgRank);
             lb.forEach((p, i) => {
-                let rc = i===0?"rank-1":i===1?"rank-2":i===2?"rank-3":"text-white";
+                let rc = i===0?"text-yellow-400":i===1?"text-gray-300":i===2?"text-orange-400":"text-white";
                 const row = document.createElement('div');
                 row.className = "bg-gray-800 rounded-xl mb-3 overflow-hidden border border-gray-700";
-                row.innerHTML = `<div class="flex items-center p-4 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('detail-open')"><div class="w-10 text-center text-2xl font-black ${rc}">${i+1}</div><div class="flex-1 pl-2 font-bold text-lg text-white">${p.name}</div><div class="w-16 text-center font-mono font-bold text-yellow-400">${p.avgRank.toFixed(2)}</div><div class="w-12 text-center text-xs text-gray-500 font-mono">${p.ppt.toFixed(1)}</div></div><div class="player-detail px-4 bg-gray-900 border-t border-gray-800"><div class="py-4 space-y-6"><div class="chart-container text-center"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR</h4>${genRadar(p.data)}</div><div class="bg-gray-800 p-4 rounded-lg border border-gray-700"><h4 class="text-xs text-gray-400 mb-3 font-bold border-b border-gray-700 pb-2 tracking-widest">主要指標</h4>${genLast10Stats(p.data)}</div><div class="chart-container"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">RANKING HISTORY (New Games)</h4>${genLine(p.data.last10Stats.map(x=>x.rank))}</div></div></div>`;
+                row.innerHTML = `<div class="flex items-center p-4 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('detail-open')"><div class="w-10 text-center text-2xl font-black ${rc}">${i+1}</div><div class="flex-1 pl-2 font-bold text-lg text-white">${p.name}</div><div class="w-16 text-center font-mono font-bold text-yellow-400">${p.avgRank.toFixed(2)}</div><div class="w-12 text-center text-xs text-gray-500 font-mono">${p.ppt.toFixed(1)}</div></div><div class="player-detail px-4 bg-gray-900 border-t border-gray-800"><div class="py-4 space-y-6"><div class="chart-container text-center"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">PERFORMANCE RADAR</h4>${genRadar(p.data)}</div><div class="bg-gray-800 p-4 rounded-lg border border-gray-700"><h4 class="text-xs text-gray-400 mb-3 font-bold border-b border-gray-700 pb-2 tracking-widest">主要指標</h4>${genLast10Stats(p.data)}</div><div class="chart-container"><h4 class="text-xs text-gray-400 mb-2 font-bold tracking-widest">RANKING HISTORY</h4>${genLine(p.data.last10Stats.map(x=>x.rank))}</div></div></div>`;
                 con.appendChild(row);
             });
+            // ★以前の詳しく書かれていた「指標ガイド」を復元★
             con.innerHTML += `
             <div class="mt-8 p-4 bg-gray-800/50 rounded-xl border border-gray-700 text-xs text-gray-400">
                 <h3 class="font-bold text-white mb-3 text-sm border-b border-gray-600 pb-2">📊 指標ガイド</h3>
@@ -459,41 +382,33 @@
         function genRadar(d) {
             const s = d.newStats; 
             const winRate = Math.round((d.wins/d.totalGames)*100);
-            const hasNew = s.games > 0;
-            const hasThrows = s.throws > 0; 
-            const acc = (hasNew && hasThrows) ? Math.round(((s.throws - s.misses)/s.throws)*100) : 0;
-            const totalHits = s.snipes + s.breaks;
-            const snipe = (hasNew && totalHits > 0) ? Math.round((s.snipes / totalHits)*100) : 0;
-            const clutch = (hasNew && (s.clutchHits+s.clutchMisses)>0) ? Math.round((s.clutchHits/(s.clutchHits+s.clutchMisses))*100) : 0;
-            const power = (hasNew && hasThrows) ? Math.min(100, Math.round(((s.totalPoints/s.throws || 0)/7) * 100)) : 0;
-            const avoidLast = hasNew ? Math.round(((s.games - s.lastPlaceCount) / s.games) * 100) : 0;
+            const acc = s.throws > 0 ? Math.round(((s.throws - s.misses)/s.throws)*100) : 0;
+            const snipe = (s.snipes + s.breaks) > 0 ? Math.round((s.snipes / (s.snipes + s.breaks))*100) : 0;
+            const totalClutch = s.clutchHits + s.clutchMisses;
+            const clutch = totalClutch > 0 ? Math.round((s.clutchHits / totalClutch)*100) : 0;
+            const power = s.throws > 0 ? Math.min(100, Math.round(((s.totalPoints/s.throws)/7)*100)) : 0;
+            const avoidLast = s.games > 0 ? Math.round(((s.games - s.lastPlaceCount) / s.games) * 100) : 0;
             const params = [{l:"勝率",v:winRate},{l:"命中率",v:acc},{l:"狙撃率",v:snipe},{l:"勝負強さ",v:clutch},{l:"得点力",v:power},{l:"ラス回避",v:avoidLast}];
             let pts="", lines="", lbls=""; const cx=150, cy=150, r=90;
-            for(let i=0;i<6;i++){ const a=(Math.PI*2*i/6)-(Math.PI/2); const v=params[i].v; pts+=`${cx+(r*(v/100))*Math.cos(a)},${cy+(r*(v/100))*Math.sin(a)} `; lines+=`<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#374151"/>`; const lx=cx+(r+35)*Math.cos(a), ly=cy+(r+35)*Math.sin(a); lbls+=`<text x="${lx}" y="${ly-7}" font-size="9" fill="#9ca3af" text-anchor="middle" font-weight="bold">${params[i].l}</text><text x="${lx}" y="${ly+8}" font-size="16" fill="#facc15" text-anchor="middle" font-weight="900" font-family="'Roboto', sans-serif">${v}%</text>`; }
-            return `<svg viewBox="-20 -20 340 340" class="w-full"><circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/><circle cx="150" cy="150" r="45" fill="none" stroke="#374151" stroke-dasharray="2,2"/>${lines}<polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>${lbls}</svg>`;
+            for(let i=0;i<6;i++){ const a=(Math.PI*2*i/6)-(Math.PI/2); const v=params[i].v; pts+=`${cx+(r*(v/100))*Math.cos(a)},${cy+(r*(v/100))*Math.sin(a)} `; lines+=`<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#374151"/>`; const lx=cx+(r+35)*Math.cos(a), ly=cy+(r+35)*Math.sin(a); lbls+=`<text x="${lx}" y="${ly-7}" font-size="9" fill="#9ca3af" text-anchor="middle">${params[i].l}</text><text x="${lx}" y="${ly+8}" font-size="16" fill="#facc15" text-anchor="middle" font-weight="900">${v}%</text>`; }
+            return `<svg viewBox="-20 -20 340 340"><circle cx="150" cy="150" r="90" fill="none" stroke="#374151"/><polygon points="${pts}" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="2"/>${lbls}</svg>`;
         }
         
         function genLast10Stats(d) {
-            const stVal = "text-3xl font-black"; const stUnit = "text-xs font-bold ml-1 text-gray-400"; const box = "bg-gray-800 p-2 rounded flex flex-col justify-center items-center h-20 border border-gray-700";
+            const ns = d.newStats; const box = "bg-gray-800 p-2 rounded flex flex-col items-center h-20 border border-gray-700";
             const winRate = Math.round((d.wins/d.totalGames)*100);
-            const avgRank = (d.rankSum / d.totalGames).toFixed(2);
-            const avgScore = d.stats.throws > 0 ? (d.stats.totalPoints/d.stats.throws).toFixed(1) : "-";
-            const ns = d.newStats; const hasNew = ns.games > 0;
-            const acc = (hasNew && ns.throws > 0) ? Math.round(((ns.throws - ns.misses) / ns.throws)*100) : "-";
-            
+            const acc = ns.throws > 0 ? Math.round(((ns.throws - ns.misses) / ns.throws)*100) : "-";
             const totalClutch = ns.clutchHits + ns.clutchMisses;
-            const clutchRate = (hasNew && totalClutch > 0) ? Math.round((ns.clutchHits / totalClutch)*100) : "-";
-            const lastAvoid = hasNew ? Math.round(((ns.games - ns.lastPlaceCount) / ns.games)*100) : "-";
-            
-            return `<div class="grid grid-cols-3 gap-2 text-center"><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-yellow-400">${winRate}</span><span class="${stUnit}">%</span></div><span class="stat-label">勝率 (全体)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgRank}</span><span class="${stUnit}">位</span></div><span class="stat-label">平均順位</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-white">${avgScore}</span><span class="${stUnit}">点</span></div><span class="stat-label">平均得点</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-blue-400">${acc}</span><span class="${stUnit}">${acc==='-'?'':'%'}</span></div><span class="stat-label">命中率 (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-gray-500">${clutchRate}</span><span class="${stUnit}">${clutchRate==='-'?'':'%'}</span></div><span class="stat-label">勝負強さ (新規)</span></div><div class="${box}"><div class="flex items-baseline"><span class="${stVal} text-pink-400">${lastAvoid}</span><span class="${stUnit}">${lastAvoid==='-'?'':'%'}</span></div><span class="stat-label">ラス回避 (新規)</span></div></div>`;
+            const clutchRate = totalClutch > 0 ? Math.round((ns.clutchHits / totalClutch)*100) : "-";
+            const lastAvoid = ns.games > 0 ? Math.round(((ns.games - ns.lastPlaceCount) / ns.games)*100) : "-";
+            return `<div class="grid grid-cols-3 gap-2 text-center"><div class="${box}"><span class="text-2xl font-black text-yellow-400">${winRate}%</span><span class="stat-label">勝率</span></div><div class="${box}"><span class="text-2xl font-black text-white">${(d.rankSum/d.totalGames).toFixed(2)}位</span><span class="stat-label">平均順位</span></div><div class="${box}"><span class="text-2xl font-black text-white">${d.stats.throws>0?(d.stats.totalPoints/d.stats.throws).toFixed(1):"-"}点</span><span class="stat-label">平均得点</span></div><div class="${box}"><span class="text-2xl font-black text-blue-400">${acc}${acc==='-'?'':'%'}</span><span class="stat-label">命中率</span></div><div class="${box}"><span class="text-2xl font-black text-gray-500">${clutchRate}${clutchRate==='-'?'':'%'}</span><span class="stat-label">勝負強さ</span></div><div class="${box}"><span class="text-2xl font-black text-pink-400">${lastAvoid}${lastAvoid==='-'?'':'%'}</span><span class="stat-label">ラス回避</span></div></div>`;
         }
 
         function genLine(ranks) {
-            if (!ranks || ranks.length === 0) return '<div class="text-xs text-gray-600 text-center py-4">新規データなし</div>';
-            const r = ranks.slice(-10);
-            if (r.length === 1) return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700"><line x1="0" y1="50" x2="280" y2="50" stroke="#374151" stroke-dasharray="4" /><circle cx="140" cy="${10 + (r[0] - 1) * 20}" r="4" fill="#60a5fa"/><text x="140" y="${10 + (r[0] - 1) * 20 - 10}" fill="#60a5fa" font-size="12" text-anchor="middle">${r[0]}位</text></svg>`;
-            const w=280, h=80, step=w/(r.length-1); let p=""; r.forEach((rk,i)=>{ p+=`${i*step},${10+(rk-1)*20} `; });
-            return `<svg viewBox="0 0 280 90" class="w-full h-24 bg-gray-800 rounded border border-gray-700"><polyline points="${p}" fill="none" stroke="#60a5fa" stroke-width="2"/>${r.map((rk,i)=>`<circle cx="${i*step}" cy="${10+(rk-1)*20}" r="3" fill="#60a5fa"/>`).join('')}</svg>`;
+            if (!ranks || ranks.length === 0) return '<div class="text-xs text-gray-600 text-center py-4">データなし</div>';
+            const r = ranks.slice(-10); const w=280, h=80, step=w/(r.length-1 || 1); let p="";
+            r.forEach((rk,i)=> p+=`${i*step},${10+(rk-1)*20} `);
+            return `<svg viewBox="0 0 280 90" class="bg-gray-800 rounded border border-gray-700"><polyline points="${p}" fill="none" stroke="#60a5fa" stroke-width="2"/>${r.map((rk,i)=>`<circle cx="${i*step}" cy="${10+(rk-1)*20}" r="3" fill="#60a5fa"/>`).join('')}</svg>`;
         }
     </script>
 </body>
